@@ -4,7 +4,6 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-import json
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -116,17 +115,15 @@ input, textarea {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- FIREBASE INIT (STREAMLIT SECRETS ONLY) ----------------
+# ---------------- FIREBASE INIT (TOML SECRETS) ----------------
 if not firebase_admin._apps:
-    key_dict = json.loads(st.secrets["FIREBASE_KEY"])
-    cred = credentials.Certificate(key_dict)
+    cred = credentials.Certificate(dict(st.secrets["firebase"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
 # ---------------- RESULT UNLOCK TIME ----------------
-# Results unlock on 6 Feb at 8 PM
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6 Feb, 8 PM
 now = datetime.now()
 
 # ---------------- HEADER ----------------
