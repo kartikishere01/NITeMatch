@@ -4,6 +4,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+import json
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -12,14 +13,13 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- STYLES (SAFE & STABLE) ----------------
+# ---------------- STYLES ----------------
 st.markdown("""
 <style>
 html, body, .stApp {
     overflow-y: auto;
 }
 
-/* BACKGROUND */
 .stApp {
     background:
         radial-gradient(circle at 20% 20%, rgba(255,79,216,0.30), transparent 40%),
@@ -29,14 +29,12 @@ html, body, .stApp {
     color: white;
 }
 
-/* LAYOUT */
 .block-container {
     max-width: 820px;
     padding-top: 2rem;
     padding-bottom: 4rem;
 }
 
-/* HEADER */
 .title {
     font-size: 3rem;
     font-weight: 900;
@@ -63,7 +61,6 @@ html, body, .stApp {
     border: 1px solid rgba(255,255,255,0.15);
 }
 
-/* GLASS CARD */
 .glass {
     background: rgba(12,12,22,0.88);
     backdrop-filter: blur(18px);
@@ -74,7 +71,6 @@ html, body, .stApp {
     box-shadow: 0 0 30px rgba(255,79,216,0.25);
 }
 
-/* SECTIONS */
 .section {
     font-size: 1.25rem;
     font-weight: 800;
@@ -83,7 +79,6 @@ html, body, .stApp {
     margin-bottom: 0.6rem;
 }
 
-/* INPUTS */
 label, .stMarkdown, .stSlider, .stRadio {
     color: white !important;
 }
@@ -94,7 +89,6 @@ input, textarea {
     border-radius: 12px !important;
 }
 
-/* MATCH CARD */
 .match {
     background: rgba(255,255,255,0.06);
     border-radius: 18px;
@@ -103,7 +97,6 @@ input, textarea {
     border: 1px solid rgba(255,255,255,0.15);
 }
 
-/* BUTTON */
 .stButton > button {
     width: 100%;
     background: linear-gradient(90deg, #ff4fd8, #00ffe1);
@@ -114,7 +107,6 @@ input, textarea {
     padding: 1em;
 }
 
-/* FOOTER */
 .footer {
     text-align: center;
     margin-top: 60px;
@@ -124,14 +116,16 @@ input, textarea {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- FIREBASE INIT ----------------
+# ---------------- FIREBASE INIT (STREAMLIT SECRETS ONLY) ----------------
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
+    key_dict = json.loads(st.secrets["FIREBASE_KEY"])
+    cred = credentials.Certificate(key_dict)
     firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
-# ---------------- RESULT UNLOCK TIME (UPDATED) ----------------
-# Results will show on 6th Feb at 8:00 PM
+# ---------------- RESULT UNLOCK TIME ----------------
+# Results unlock on 6 Feb at 8 PM
 UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)
 now = datetime.now()
 
@@ -268,6 +262,6 @@ else:
 
 # ---------------- FOOTER ----------------
 st.markdown(
-    "<div class='footer'>Built with ❤️, caffeine & low attendace </div>",
+    "<div class='footer'>Built with ❤️, caffeine & zero sleep</div>",
     unsafe_allow_html=True
 )
