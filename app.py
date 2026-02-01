@@ -27,7 +27,8 @@ st.markdown("""
 .title {
     font-size: 3rem; font-weight: 900; text-align: center;
     background: linear-gradient(90deg, #ff4fd8, #00ffe1);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 .glass {
     background: rgba(12,12,22,0.88);
@@ -61,6 +62,26 @@ st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Swipe less. Feel more. • Matches are limited to keep things meaningful 💫")
 
 # ---------------- HELPERS ----------------
+SCALE_LABELS = [
+    "No",
+    "Slightly",
+    "Maybe",
+    "Mostly",
+    "Yes",
+    "Strongly yes"
+]
+
+def scale_slider(label, help_text=None):
+    choice = st.select_slider(
+        label,
+        options=SCALE_LABELS,
+        help=help_text
+    )
+    return SCALE_LABELS.index(choice) + 1  # store as 1–6
+
+def map_choice(x, a, b):
+    return 0 if x == a else 1
+
 def fetch_users():
     return [doc.to_dict() for doc in db.collection("users").stream()]
 
@@ -70,28 +91,59 @@ def build_matrix(users):
         for u in users
     ])
 
-def yn(x):
-    return 1 if x == "Yes" else 0
-
 # ---------------- FORM MODE ----------------
 if now < UNLOCK_TIME:
 
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
+
     with st.form("form"):
         alias = st.text_input("Choose an alias")
         gender = st.radio("I identify as", ["Male", "Female"])
 
-        q1 = st.slider("I enjoy deep conversations", 1, 5)
-        q2 = st.slider("I open up emotionally", 1, 5)
-        q3 = st.slider("I stay calm during conflicts", 1, 5)
-        q4 = st.slider("I value emotional understanding", 1, 5)
-        q5 = st.slider("My energy level is high", 1, 5)
+        q1 = scale_slider(
+            "When I feel overwhelmed, I prefer emotional closeness",
+            "Higher means you prefer closeness over space"
+        )
 
-        q6 = st.radio("I prefer late nights 🌙", ["Yes", "No"])
-        q7 = st.radio("I enjoy spontaneous plans ✨", ["Yes", "No"])
-        q8 = st.slider("I enjoy playful humour", 1, 5)
-        q9 = st.radio("I like late-night talks 💬", ["Yes", "No"])
-        q10 = st.radio("I believe chemistry > perfection 💞", ["Yes", "No"])
+        q2 = scale_slider(
+            "I feel emotionally safe opening up to someone"
+        )
+
+        q3 = scale_slider(
+            "During conflict, I try to understand before reacting"
+        )
+
+        q4 = scale_slider(
+            "Emotional loyalty matters more to me than attention"
+        )
+
+        q5 = scale_slider(
+            "I believe relationships should help you grow"
+        )
+
+        q6 = st.radio(
+            "In difficult times, I prefer",
+            ["Handling things alone", "Leaning on someone"]
+        )
+
+        q7 = st.radio(
+            "I handle emotional pain by",
+            ["Thinking it through quietly", "Talking it out"]
+        )
+
+        q8 = scale_slider(
+            "I express care more through actions than words"
+        )
+
+        q9 = st.radio(
+            "If love becomes less exciting, I stay because of",
+            ["Stability and trust", "Shared growth"]
+        )
+
+        q10 = st.radio(
+            "In close relationships, respect means",
+            ["Giving space", "Being emotionally present"]
+        )
 
         instagram = st.text_input("Instagram (optional, without @)")
         consent = st.checkbox("I allow my Instagram to be shared")
@@ -107,9 +159,16 @@ if now < UNLOCK_TIME:
                 "alias": alias.strip(),
                 "gender": gender,
                 "answers": {
-                    "q1": q1, "q2": q2, "q3": q3, "q4": q4, "q5": q5,
-                    "q6": yn(q6), "q7": yn(q7),
-                    "q8": q8, "q9": yn(q9), "q10": yn(q10)
+                    "q1": q1,
+                    "q2": q2,
+                    "q3": q3,
+                    "q4": q4,
+                    "q5": q5,
+                    "q6": map_choice(q6, "Handling things alone", "Leaning on someone"),
+                    "q7": map_choice(q7, "Thinking it through quietly", "Talking it out"),
+                    "q8": q8,
+                    "q9": map_choice(q9, "Stability and trust", "Shared growth"),
+                    "q10": map_choice(q10, "Giving space", "Being emotionally present")
                 },
                 "contact": {
                     "instagram": instagram.strip(),
@@ -118,6 +177,7 @@ if now < UNLOCK_TIME:
                 "message": message.strip()
             })
             st.success("Submitted! Come back Feb 6, 8 PM 💖")
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- RESULTS MODE ----------------
@@ -139,7 +199,6 @@ else:
     MAX_MATCHES = 5
     n = len(users)
 
-    # build all valid pairs
     pairs = []
     for i in range(n):
         for j in range(i + 1, n):
@@ -161,6 +220,7 @@ else:
     my_matches = matches[me_idx]
 
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
+
     if not my_matches:
         st.info("No matches this round — quality over quantity 💫")
     else:
@@ -168,11 +228,12 @@ else:
             u = users[idx]
             st.markdown(
                 f"<div class='match'><b>{r}. {u['alias']}</b><br>"
-                f"Compatibility: <b>{round(s*100,2)}%</b></div>",
+                f"Compatibility: <b>{round(s * 100, 2)}%</b></div>",
                 unsafe_allow_html=True
             )
             if u["contact"]["share_instagram"]:
                 st.caption(f"📸 @{u['contact']['instagram']}")
             if u.get("message"):
                 st.caption(f"💌 {u['message']}")
+
     st.markdown("</div>", unsafe_allow_html=True)
