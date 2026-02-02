@@ -2,9 +2,12 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
-import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import hashlib
+
+# ---------------- CONFIG ----------------
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6 Feb, night
+MATCH_THRESHOLD = 0.75
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -38,15 +41,15 @@ st.markdown("""
     backdrop-filter: blur(18px);
     border-radius: 24px;
     padding: 32px;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
 }
 .match {
     background: rgba(255,255,255,0.06);
     border-radius: 18px;
     padding: 16px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
-.small-note {
+.small {
     font-size: 0.8rem;
     opacity: 0.7;
 }
@@ -60,18 +63,12 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# ---------------- TIMELINE ----------------
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)
-
 # ---------------- HELPERS ----------------
 SCALE = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
 
 def scale_slider(label):
     val = st.select_slider(label, options=SCALE)
     return SCALE.index(val) + 1
-
-def bin_map(x, a, b):
-    return 0 if x == a else 1
 
 def cosine(a, b):
     return cosine_similarity([a], [b])[0][0]
@@ -82,31 +79,43 @@ def hash_text(text: str) -> str:
 def fetch_users():
     return [doc.to_dict() for doc in db.collection("users").stream()]
 
-def get_chat_id(a, b):
+def chat_id(a, b):
     return "_".join(sorted([a, b]))
 
 # ---------------- HEADER ----------------
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
-st.caption("Anonymous psychological compatibility • Exclusive to NIT Jalandhar")
+st.caption("Psychological compatibility • Exclusive to NIT Jalandhar")
+
+now = datetime.now()
+
+# ---------------- COUNTDOWN ----------------
+if now < UNLOCK_TIME:
+    remaining = int((UNLOCK_TIME - now).total_seconds())
+    d, r = divmod(remaining, 86400)
+    h, r = divmod(r, 3600)
+    m, s = divmod(r, 60)
+
+    st.markdown(f"""
+    <div style="text-align:center; margin-bottom:20px;">
+        <div class="small">⏳ Matches reveal in</div>
+        <div style="font-size:1.8rem; font-weight:700;">
+            {d:02d}d {h:02d}h {m:02d}m {s:02d}s
+        </div>
+        <div class="small">6th February Night • Before Valentine’s Week</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ================= FORM MODE =================
-if datetime.now() < UNLOCK_TIME:
-
-    st.markdown("### Community Guidelines")
-    st.markdown("""
-    • Be respectful and honest  
-    • No abusive or inappropriate language  
-    • One account per student  
-    """)
+if now < UNLOCK_TIME:
 
     with st.form("form"):
-        username = st.text_input("Create a username (this will be shown to your match)")
+        username = st.text_input("Create a username (shown to your match)")
         password = st.text_input("Create a password", type="password")
         email = st.text_input("Official NIT Jalandhar Email ID")
 
         st.markdown(
-            "<p class='small-note'>Email is used only to ensure exclusivity. "
-            "It will never be shown or used for chat.</p>",
+            "<p class='small'>Email is used only to maintain exclusivity. "
+            "It is never shown or used for chat.</p>",
             unsafe_allow_html=True
         )
 
@@ -117,14 +126,10 @@ if datetime.now() < UNLOCK_TIME:
         q3 = scale_slider("During conflict, I try to understand before reacting")
         q4 = scale_slider("Emotional loyalty matters more than attention")
         q5 = scale_slider("Relationships should help people grow")
-        q6 = st.radio("In difficult situations, I prefer",
-                      ["Handling things alone", "Leaning on someone"])
-        q7 = st.radio("I process emotional pain by",
-                      ["Thinking quietly", "Talking it out"])
-        q8 = scale_slider("I express care more through actions than words")
 
         message = st.text_area("Optional message for your match", max_chars=200)
         agree = st.checkbox("I confirm I am from NIT Jalandhar")
+
         submit = st.form_submit_button("Submit")
 
     if submit:
@@ -147,14 +152,11 @@ if datetime.now() < UNLOCK_TIME:
                     "email_hash": email_hash,
                     "gender": gender,
                     "answers": {
-                        "psych": [q1, q2, q3, q4, q5,
-                                  bin_map(q6, "Handling things alone", "Leaning on someone"),
-                                  bin_map(q7, "Thinking quietly", "Talking it out"),
-                                  q8]
+                        "psych": [q1, q2, q3, q4, q5]
                     },
                     "message": message.strip()
                 })
-                st.success("Response recorded. Save your username & password. 💘")
+                st.success("Response recorded. Save your username & password 💘")
 
 # ================= RESULTS MODE =================
 else:
@@ -179,14 +181,16 @@ else:
         st.success("Login successful")
         st.markdown("<div class='glass'>", unsafe_allow_html=True)
 
+        found = False
+
         for u in users:
             if u["username"] == me["username"] or u["gender"] == me["gender"]:
                 continue
 
-            ps = cosine(me["answers"]["psych"], u["answers"]["psych"])
-            score = ps  # psychology-only for now
+            score = cosine(me["answers"]["psych"], u["answers"]["psych"])
 
-            if score > 0.75:
+            if score >= MATCH_THRESHOLD:
+                found = True
                 st.markdown(
                     f"<div class='match'><b>{u['username']}</b><br>"
                     f"Compatibility: <b>{round(score*100,2)}%</b></div>",
@@ -194,22 +198,25 @@ else:
                 )
 
                 with st.expander("💬 Chat"):
-                    chat_ref = db.collection("chats").document(
-                        get_chat_id(me["username"], u["username"])
+                    ref = db.collection("chats").document(
+                        chat_id(me["username"], u["username"])
                     ).collection("messages")
 
-                    for m in chat_ref.order_by("timestamp").stream():
+                    for m in ref.order_by("timestamp").stream():
                         d = m.to_dict()
                         sender = "You" if d["sender"] == me["username"] else u["username"]
                         st.markdown(f"**{sender}:** {d['text']}")
 
                     msg = st.text_input("Message", key=u["username"])
                     if st.button("Send", key=f"send_{u['username']}") and msg.strip():
-                        chat_ref.add({
+                        ref.add({
                             "sender": me["username"],
                             "text": msg.strip(),
                             "timestamp": datetime.utcnow()
                         })
                         st.rerun()
+
+        if not found:
+            st.info("Matching phase is complete. Results will appear here.")
 
         st.markdown("</div>", unsafe_allow_html=True)
