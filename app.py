@@ -133,7 +133,7 @@ def cosine(a, b):
 # ---------------- FORM MODE ----------------
 if now < UNLOCK_TIME:
 
-    st.markdown("<div class='glass'>", unsafe_allow_html=True)
+    
 
     with st.form("form"):
         alias = st.text_input("Choose an anonymous alias")
@@ -253,3 +253,4 @@ else:
                 st.caption(f"💬 {u['message']}")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
