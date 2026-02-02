@@ -46,10 +46,6 @@ st.markdown("""
     padding: 16px;
     margin-bottom: 18px;
 }
-.why {
-    opacity: 0.85;
-    font-size: 0.9rem;
-}
 .small-note {
     font-size: 0.8rem;
     opacity: 0.7;
@@ -65,7 +61,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ---------------- TIMELINE ----------------
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6th Feb night
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)
 
 # ---------------- HELPERS ----------------
 SCALE = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
@@ -80,75 +76,42 @@ def bin_map(x, a, b):
 def cosine(a, b):
     return cosine_similarity([a], [b])[0][0]
 
+def hash_text(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
 def fetch_users():
     return [doc.to_dict() for doc in db.collection("users").stream()]
 
-def hash_email(email: str) -> str:
-    return hashlib.sha256(email.lower().strip().encode()).hexdigest()
-
 def get_chat_id(a, b):
     return "_".join(sorted([a, b]))
-
-# ---------------- COUNTDOWN (SAFE) ----------------
-def render_countdown(target_time):
-    remaining = int((target_time - datetime.now()).total_seconds())
-    if remaining <= 0:
-        return
-
-    d, r = divmod(remaining, 86400)
-    h, r = divmod(r, 3600)
-    m, s = divmod(r, 60)
-
-    st.markdown(
-        f"""
-        <div style="text-align:center; margin: 20px 0 30px 0;">
-            <div style="font-size:1.1rem; opacity:0.85;">⏳ Matches reveal in</div>
-            <div style="font-size:1.9rem; font-weight:700;">
-                {d:02d}d {h:02d}h {m:02d}m {s:02d}s
-            </div>
-            <div style="font-size:0.85rem; opacity:0.7;">
-                6th February, Night • Before Valentine’s Week
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 # ---------------- HEADER ----------------
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Anonymous psychological compatibility • Exclusive to NIT Jalandhar")
 
+# ================= FORM MODE =================
 if datetime.now() < UNLOCK_TIME:
-    render_countdown(UNLOCK_TIME)
-
-# ================== FORM MODE ==================
-if datetime.now() < UNLOCK_TIME:
-
 
     st.markdown("### Community Guidelines")
     st.markdown("""
     • Be respectful and honest  
     • No abusive or inappropriate language  
-    • Responses influence matching quality  
-    • Only NIT Jalandhar students may participate  
+    • One account per student  
     """)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     with st.form("form"):
-        alias = st.text_input("Choose an anonymous alias")
+        username = st.text_input("Create a username (this will be shown to your match)")
+        password = st.text_input("Create a password", type="password")
         email = st.text_input("Official NIT Jalandhar Email ID")
 
         st.markdown(
-            "<p class='small-note'>"
-            "Your email is collected only to maintain exclusivity. "
-            "It is securely hashed and never shared."
-            "</p>",
+            "<p class='small-note'>Email is used only to ensure exclusivity. "
+            "It will never be shown or used for chat.</p>",
             unsafe_allow_html=True
         )
 
         gender = st.radio("I identify as", ["Male", "Female"])
 
-        # Psychological
         q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
         q2 = scale_slider("I feel emotionally safe opening up")
         q3 = scale_slider("During conflict, I try to understand before reacting")
@@ -160,77 +123,93 @@ if datetime.now() < UNLOCK_TIME:
                       ["Thinking quietly", "Talking it out"])
         q8 = scale_slider("I express care more through actions than words")
 
-        # Interests
-        q9 = st.radio("Music era you connect with most",
-                      ["Before 2000", "2000–2009", "2010–2019", "2020–Present"])
-        q10 = st.radio("Preferred music genre",
-                       ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"])
-        q11 = st.radio("You would rather go to", ["Beaches", "Mountains"])
-        q12 = st.radio("Movies you enjoy the most",
-                       ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"])
-        q13 = st.radio("Your go-to hangout spot",
-                       ["Nescafe near Verka", "Campus Cafe", "Night Canteen",
-                        "Yadav Canteen", "Snackers", "Domino’s",
-                        "Nescafe near Boys Hostel", "Rimjhim area"])
-
-        # Situational
-        q14 = st.radio("If extremely busy but someone important needs you",
-                       ["Prioritize work", "Make time"])
-        q15 = st.radio("After a disagreement, you prefer",
-                       ["Cool off first", "Talk it out"])
-
-        instagram = st.text_input("Instagram (optional, without @)")
-        consent = st.checkbox("Allow my Instagram to be shared with matches")
-        message = st.text_area("Optional message for matches", max_chars=200)
-
+        message = st.text_area("Optional message for your match", max_chars=200)
         agree = st.checkbox("I confirm I am from NIT Jalandhar")
         submit = st.form_submit_button("Submit")
 
     if submit:
-        if not alias.strip():
-            st.error("Alias is required")
+        if not username or not password:
+            st.error("Username and password are required")
         elif not email.lower().endswith("@nitj.ac.in"):
             st.error("Please use your official NIT Jalandhar email")
         elif not agree:
             st.error("Please confirm eligibility")
         else:
-            email_hash = hash_email(email)
-            exists = db.collection("users").where("email_hash", "==", email_hash).get()
+            email_hash = hash_text(email.lower())
+            password_hash = hash_text(password)
 
-            if exists:
+            if db.collection("users").where("email_hash", "==", email_hash).get():
                 st.warning("You have already submitted. Please wait till 6th February 💫")
             else:
                 db.collection("users").add({
-                    "alias": alias.strip(),
+                    "username": username,
+                    "password_hash": password_hash,
                     "email_hash": email_hash,
                     "gender": gender,
                     "answers": {
                         "psych": [q1, q2, q3, q4, q5,
                                   bin_map(q6, "Handling things alone", "Leaning on someone"),
                                   bin_map(q7, "Thinking quietly", "Talking it out"),
-                                  q8],
-                        "interest": [
-                            ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(q9),
-                            ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(q10),
-                            bin_map(q11, "Beaches", "Mountains"),
-                            ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(q12),
-                            ["Nescafe near Verka", "Campus Cafe", "Night Canteen",
-                             "Yadav Canteen", "Snackers", "Domino’s",
-                             "Nescafe near Boys Hostel", "Rimjhim area"].index(q13)
-                        ],
-                        "situation": [
-                            bin_map(q14, "Prioritize work", "Make time"),
-                            bin_map(q15, "Cool off first", "Talk it out")
-                        ]
-                    },
-                    "contact": {
-                        "instagram": instagram.strip(),
-                        "share_instagram": consent
+                                  q8]
                     },
                     "message": message.strip()
                 })
-                st.success("Response recorded. Matches will be revealed on 6th February at night 💘")
+                st.success("Response recorded. Save your username & password. 💘")
 
-# ================== RESULTS MODE ==================
+# ================= RESULTS MODE =================
 else:
-    st.info("Matching phase is complete. Results will appear here.")
+    st.markdown("### Login to view your matches")
+
+    login_user = st.text_input("Username")
+    login_pass = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        users = fetch_users()
+        me = None
+
+        for u in users:
+            if u["username"] == login_user and u["password_hash"] == hash_text(login_pass):
+                me = u
+                break
+
+        if not me:
+            st.error("Invalid username or password")
+            st.stop()
+
+        st.success("Login successful")
+        st.markdown("<div class='glass'>", unsafe_allow_html=True)
+
+        for u in users:
+            if u["username"] == me["username"] or u["gender"] == me["gender"]:
+                continue
+
+            ps = cosine(me["answers"]["psych"], u["answers"]["psych"])
+            score = ps  # psychology-only for now
+
+            if score > 0.75:
+                st.markdown(
+                    f"<div class='match'><b>{u['username']}</b><br>"
+                    f"Compatibility: <b>{round(score*100,2)}%</b></div>",
+                    unsafe_allow_html=True
+                )
+
+                with st.expander("💬 Chat"):
+                    chat_ref = db.collection("chats").document(
+                        get_chat_id(me["username"], u["username"])
+                    ).collection("messages")
+
+                    for m in chat_ref.order_by("timestamp").stream():
+                        d = m.to_dict()
+                        sender = "You" if d["sender"] == me["username"] else u["username"]
+                        st.markdown(f"**{sender}:** {d['text']}")
+
+                    msg = st.text_input("Message", key=u["username"])
+                    if st.button("Send", key=f"send_{u['username']}") and msg.strip():
+                        chat_ref.add({
+                            "sender": me["username"],
+                            "text": msg.strip(),
+                            "timestamp": datetime.utcnow()
+                        })
+                        st.rerun()
+
+        st.markdown("</div>", unsafe_allow_html=True)
