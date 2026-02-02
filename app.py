@@ -6,7 +6,7 @@ import hashlib
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-# ================= PAGE CONFIG =================
+# =================  PAGE CONFIG =================
 st.set_page_config(
     page_title="NITeMatch",
     page_icon="💘",
