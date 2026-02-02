@@ -71,16 +71,20 @@ now = datetime.now()
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Anonymous psychological compatibility • Exclusive to NIT Jalandhar")
 
-# ---------------- INFO ----------------
+# ---------------- INFO SECTION ----------------
 st.markdown("""
 <div class="glass">
 <h3>Important information</h3>
 
 <ul>
 <li>This experience is exclusively for <b>NIT Jalandhar students</b>.</li>
-<li>Your identity remains anonymous throughout the process.</li>
+<li>Your identity remains <b>anonymous</b> throughout the process.</li>
 <li>Matches are based primarily on <b>psychological compatibility</b>, refined using interests.</li>
-<li>Only your alias, optional Instagram, and optional message are shared with matches.</li>
+<li><b>Only people you are matched with</b> can see your shared details.</li>
+<li>Until matching, your information remains <b>private and inaccessible</b> to others.</li>
+<li>Only your <b>alias, optional Instagram, and optional message</b> are shared.</li>
+<li>There is <b>no way to contact someone</b> except via details you choose to share.</li>
+<li>Your official email is collected <b>only to maintain exclusivity</b> and is not used for contact or matching.</li>
 </ul>
 
 <h4>Timeline</h4>
@@ -106,11 +110,11 @@ def scale_slider(label):
 def bin_map(x, a, b):
     return 0 if x == a else 1
 
-def fetch_users():
-    return [doc.to_dict() for doc in db.collection("users").stream()]
-
 def cosine(a, b):
     return cosine_similarity([a], [b])[0][0]
+
+def fetch_users():
+    return [doc.to_dict() for doc in db.collection("users").stream()]
 
 # ---------------- FORM MODE ----------------
 if now < UNLOCK_TIME:
@@ -129,19 +133,18 @@ if now < UNLOCK_TIME:
 
         gender = st.radio("I identify as", ["Male", "Female"])
 
-        # Psychological
         q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
         q2 = scale_slider("I feel emotionally safe opening up")
         q3 = scale_slider("During conflict, I try to understand before reacting")
         q4 = scale_slider("Emotional loyalty matters more than attention")
         q5 = scale_slider("Relationships should help people grow")
+
         q6 = st.radio("In difficult situations, I prefer",
                       ["Handling things alone", "Leaning on someone"])
         q7 = st.radio("I process emotional pain by",
                       ["Thinking quietly", "Talking it out"])
         q8 = scale_slider("I express care more through actions than words")
 
-        # Interests
         q9 = st.radio("Music era you connect with most",
                       ["Before 2000", "2000–2009", "2010–2019", "2020–Present"])
         q10 = st.radio("Preferred music genre",
@@ -154,7 +157,6 @@ if now < UNLOCK_TIME:
                         "Yadav Canteen", "Snackers", "Domino’s",
                         "Nescafe near Boys Hostel", "Rimjhim area"])
 
-        # Situational
         q14 = st.radio("If extremely busy but someone important needs you",
                        ["Prioritize work", "Make time"])
         q15 = st.radio("After a disagreement, you prefer",
@@ -173,11 +175,11 @@ if now < UNLOCK_TIME:
         elif not email.strip().lower().endswith("@nitj.ac.in"):
             st.error("Please enter a valid NIT Jalandhar official email ID")
         elif not agree:
-            st.error("Please confirm eligibility to continue")
+            st.error("Please confirm eligibility")
         else:
             db.collection("users").add({
                 "alias": alias.strip(),
-                "email_domain_verified": True,  # no email stored
+                "email_domain_verified": True,
                 "gender": gender,
                 "answers": {
                     "psych": [
@@ -216,7 +218,7 @@ else:
     me_u = users[aliases.index(me)]
 
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
-    st.caption("Matches are shown based on psychological compatibility and shared interests.")
+    st.caption("Matches are based on psychological compatibility and shared interests.")
 
     for u in users:
         if u["alias"] == me:
