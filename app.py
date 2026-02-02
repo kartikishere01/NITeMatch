@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="NITeMatch 💘",
+    page_title="NITeMatch",
     page_icon="💘",
     layout="centered"
 )
@@ -25,7 +25,9 @@ st.markdown("""
 }
 .block-container { max-width: 820px; padding-top: 2rem; }
 .title {
-    font-size: 3rem; font-weight: 900; text-align: center;
+    font-size: 3rem;
+    font-weight: 900;
+    text-align: center;
     background: linear-gradient(90deg, #ff4fd8, #00ffe1);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -59,25 +61,65 @@ now = datetime.now()
 
 # ---------------- HEADER ----------------
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
-st.caption("Swipe less. Feel more. • Matches are limited to keep things meaningful 💫")
+st.caption("An anonymous compatibility experience • Exclusive to NIT Jalandhar")
+
+# ---------------- INFO: RULES + TIMELINE ----------------
+st.markdown("""
+<div class="glass">
+<h3>Important information</h3>
+
+<h4>Exclusivity</h4>
+<ul>
+<li>This experience is intended <b>exclusively for students of NIT Jalandhar</b>.</li>
+<li>Participation is based on trust and mutual respect.</li>
+<li>Please do not participate if you are not from NIT Jalandhar.</li>
+</ul>
+
+<h4>How this works</h4>
+<ul>
+<li>Your identity remains <b>anonymous</b> during the matching process.</li>
+<li>Your responses are used only to calculate compatibility.</li>
+<li>You will see profiles only after matching, and only with matched participants.</li>
+<li>Only your <b>alias, optional Instagram ID, and optional message</b> are shared.</li>
+<li>No one else can view your responses, message, or contact details.</li>
+<li>There is no way to contact someone through this platform except via the details you choose to share.</li>
+<li>If you do not share contact details, no contact is possible.</li>
+</ul>
+
+<h4>How matching works</h4>
+<ul>
+<li>Matching is based on <b>psychological compatibility</b>, not appearance or popularity.</li>
+<li>Your answers reflect thinking patterns around communication, emotional safety, conflict handling, and values.</li>
+<li>People are matched when these patterns show strong alignment.</li>
+<li>The goal is meaningful compatibility, not random pairing.</li>
+</ul>
+
+<h4>Timeline</h4>
+<ul>
+<li><b>Now → Match Day:</b> Responses are collected anonymously.</li>
+<li><b>Match Day:</b> Compatibility is calculated based on psychological alignment.</li>
+<li><b>After Match Day:</b> You can view only your matches and their shared details.</li>
+</ul>
+
+<h4>Community guidelines</h4>
+<ul>
+<li>Please avoid foul, abusive, or inappropriate language.</li>
+<li>Such content may affect matching quality or lead to exclusion.</li>
+<li>Honest responses lead to better matches.</li>
+</ul>
+
+<p style="opacity:0.8;">
+By continuing, you confirm that you are from NIT Jalandhar and agree to participate respectfully.
+</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------------- HELPERS ----------------
-SCALE_LABELS = [
-    "No",
-    "Slightly",
-    "Maybe",
-    "Mostly",
-    "Yes",
-    "Strongly yes"
-]
+SCALE_LABELS = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
 
-def scale_slider(label, help_text=None):
-    choice = st.select_slider(
-        label,
-        options=SCALE_LABELS,
-        help=help_text
-    )
-    return SCALE_LABELS.index(choice) + 1  # store as 1–6
+def scale_slider(label):
+    choice = st.select_slider(label, options=SCALE_LABELS)
+    return SCALE_LABELS.index(choice) + 1
 
 def map_choice(x, a, b):
     return 0 if x == a else 1
@@ -97,75 +139,49 @@ if now < UNLOCK_TIME:
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
 
     with st.form("form"):
-        alias = st.text_input("Choose an alias")
+        alias = st.text_input("Choose an anonymous alias")
         gender = st.radio("I identify as", ["Male", "Female"])
 
-        q1 = scale_slider(
-            "When I feel overwhelmed, I prefer emotional closeness",
-            "Higher means you prefer closeness over space"
-        )
+        q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
+        q2 = scale_slider("I feel emotionally safe opening up to someone")
+        q3 = scale_slider("During conflict, I try to understand before reacting")
+        q4 = scale_slider("Emotional loyalty matters more than attention")
+        q5 = scale_slider("Relationships should help people grow")
 
-        q2 = scale_slider(
-            "I feel emotionally safe opening up to someone"
-        )
+        q6 = st.radio("In difficult situations, I prefer",
+                      ["Handling things alone", "Leaning on someone"])
 
-        q3 = scale_slider(
-            "During conflict, I try to understand before reacting"
-        )
+        q7 = st.radio("I process emotional pain by",
+                      ["Thinking quietly", "Talking it out"])
 
-        q4 = scale_slider(
-            "Emotional loyalty matters more to me than attention"
-        )
+        q8 = scale_slider("I express care more through actions than words")
 
-        q5 = scale_slider(
-            "I believe relationships should help you grow"
-        )
+        q9 = st.radio("When excitement fades, commitment comes from",
+                      ["Stability and trust", "Shared growth"])
 
-        q6 = st.radio(
-            "In difficult times, I prefer",
-            ["Handling things alone", "Leaning on someone"]
-        )
-
-        q7 = st.radio(
-            "I handle emotional pain by",
-            ["Thinking it through quietly", "Talking it out"]
-        )
-
-        q8 = scale_slider(
-            "I express care more through actions than words"
-        )
-
-        q9 = st.radio(
-            "If love becomes less exciting, I stay because of",
-            ["Stability and trust", "Shared growth"]
-        )
-
-        q10 = st.radio(
-            "In close relationships, respect means",
-            ["Giving space", "Being emotionally present"]
-        )
+        q10 = st.radio("In close relationships, respect means",
+                       ["Giving space", "Being emotionally present"])
 
         instagram = st.text_input("Instagram (optional, without @)")
-        consent = st.checkbox("I allow my Instagram to be shared")
-        message = st.text_area("Message for your match 💌", max_chars=200)
+        consent = st.checkbox("Allow my Instagram to be shared with matches")
+        message = st.text_area("Optional message for matches (max 200 characters)", max_chars=200)
 
-        submit = st.form_submit_button("Submit 💘")
+        agree = st.checkbox("I confirm that I am from NIT Jalandhar and agree to the above")
+        submit = st.form_submit_button("Submit")
 
     if submit:
         if not alias.strip():
-            st.error("Alias required")
+            st.error("Alias is required")
+        elif not agree:
+            st.error("Please confirm eligibility to continue")
         else:
             db.collection("users").add({
                 "alias": alias.strip(),
                 "gender": gender,
                 "answers": {
-                    "q1": q1,
-                    "q2": q2,
-                    "q3": q3,
-                    "q4": q4,
-                    "q5": q5,
+                    "q1": q1, "q2": q2, "q3": q3, "q4": q4, "q5": q5,
                     "q6": map_choice(q6, "Handling things alone", "Leaning on someone"),
-                    "q7": map_choice(q7, "Thinking it through quietly", "Talking it out"),
+                    "q7": map_choice(q7, "Thinking quietly", "Talking it out"),
                     "q8": q8,
                     "q9": map_choice(q9, "Stability and trust", "Shared growth"),
                     "q10": map_choice(q10, "Giving space", "Being emotionally present")
@@ -176,7 +192,7 @@ if now < UNLOCK_TIME:
                 },
                 "message": message.strip()
             })
-            st.success("Submitted! Come back Feb 6, 8 PM 💖")
+            st.success("Response recorded. Results will be available on match day.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -185,7 +201,7 @@ else:
     users = fetch_users()
 
     if len(users) < 2:
-        st.info("Not enough participants yet.")
+        st.info("Not enough participants for matching")
         st.stop()
 
     aliases = [u["alias"] for u in users]
@@ -222,18 +238,19 @@ else:
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
 
     if not my_matches:
-        st.info("No matches this round — quality over quantity 💫")
+        st.info("No compatible profiles available")
     else:
-        for r, (idx, s) in enumerate(my_matches, 1):
+        st.caption("Matches below are based on psychological compatibility.")
+        for idx, s in my_matches:
             u = users[idx]
             st.markdown(
-                f"<div class='match'><b>{r}. {u['alias']}</b><br>"
-                f"Compatibility: <b>{round(s * 100, 2)}%</b></div>",
+                f"<div class='match'><b>{u['alias']}</b><br>"
+                f"Compatibility score: <b>{round(s * 100, 2)}%</b></div>",
                 unsafe_allow_html=True
             )
             if u["contact"]["share_instagram"]:
                 st.caption(f"📸 @{u['contact']['instagram']}")
             if u.get("message"):
-                st.caption(f"💌 {u['message']}")
+                st.caption(f"💬 {u['message']}")
 
     st.markdown("</div>", unsafe_allow_html=True)
