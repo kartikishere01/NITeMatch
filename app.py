@@ -49,6 +49,10 @@ st.markdown("""
     opacity: 0.85;
     font-size: 0.9rem;
 }
+.small-note {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -60,56 +64,34 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ---------------- TIMELINE ----------------
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6th Feb, night
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)
 now = datetime.now()
 
 # ---------------- HEADER ----------------
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Anonymous psychological compatibility • Exclusive to NIT Jalandhar")
 
-# ---------------- INFO SECTION ----------------
+# ---------------- INFO ----------------
 st.markdown("""
 <div class="glass">
 <h3>Important information</h3>
 
-<h4>Exclusivity</h4>
 <ul>
 <li>This experience is exclusively for <b>NIT Jalandhar students</b>.</li>
-<li>Participation is based on honesty and mutual respect.</li>
-</ul>
-
-<h4>How this works</h4>
-<ul>
-<li>Your identity remains <b>anonymous</b> during the entire matching process.</li>
-<li>Your responses are used only to calculate compatibility.</li>
-<li>You will see profiles only after matching, and only with people you are matched with.</li>
-<li>Only your <b>alias, optional Instagram ID, and optional message</b> are shared.</li>
-<li>There is no way to contact someone except via the details you choose to share.</li>
-</ul>
-
-<h4>How matching works</h4>
-<ul>
-<li>Matching is based primarily on <b>psychological compatibility</b>.</li>
-<li>Shared interests and lifestyle preferences are used to refine matches.</li>
-<li>The goal is meaningful compatibility, not random pairing.</li>
+<li>Your identity remains anonymous throughout the process.</li>
+<li>Matches are based primarily on <b>psychological compatibility</b>, refined using interests.</li>
+<li>Only your alias, optional Instagram, and optional message are shared with matches.</li>
 </ul>
 
 <h4>Timeline</h4>
 <ul>
-<li><b>Now → 6th February:</b> You fill in your responses and interests anonymously.</li>
-<li><b>6th February:</b> Compatibility matching is computed based on psychological thinking.</li>
-<li><b>6th February (Night):</b> Your best matches are revealed before Valentine’s Week.</li>
+<li><b>Now → 6th February:</b> Fill in your responses and interests.</li>
+<li><b>6th February:</b> Compatibility matching happens internally.</li>
+<li><b>6th February (Night):</b> Matches are revealed before Valentine’s Week.</li>
 </ul>
 
-<h4>Community guidelines</h4>
-<ul>
-<li>Please avoid foul, abusive, or inappropriate language.</li>
-<li>Such content may affect matching quality or lead to exclusion.</li>
-<li>Honest responses lead to better matches.</li>
-</ul>
-
-<p style="opacity:0.8;">
-By continuing, you confirm that you are from NIT Jalandhar and agree to participate respectfully.
+<p class="small-note">
+Please participate respectfully. Honest responses lead to better matches.
 </p>
 </div>
 """, unsafe_allow_html=True)
@@ -133,13 +115,21 @@ def cosine(a, b):
 # ---------------- FORM MODE ----------------
 if now < UNLOCK_TIME:
 
-    
-
     with st.form("form"):
         alias = st.text_input("Choose an anonymous alias")
+
+        email = st.text_input("Official NIT Jalandhar Email ID")
+        st.markdown(
+            "<p class='small-note'>"
+            "This email is collected only to maintain exclusivity for NIT Jalandhar students. "
+            "It will not be used for contact, matching, or shared with anyone."
+            "</p>",
+            unsafe_allow_html=True
+        )
+
         gender = st.radio("I identify as", ["Male", "Female"])
 
-        # Psychological (8)
+        # Psychological
         q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
         q2 = scale_slider("I feel emotionally safe opening up")
         q3 = scale_slider("During conflict, I try to understand before reacting")
@@ -152,9 +142,9 @@ if now < UNLOCK_TIME:
         q8 = scale_slider("I express care more through actions than words")
 
         # Interests
-        q9 = st.radio("The music era you connect with the most",
+        q9 = st.radio("Music era you connect with most",
                       ["Before 2000", "2000–2009", "2010–2019", "2020–Present"])
-        q10 = st.radio("Your preferred music genre",
+        q10 = st.radio("Preferred music genre",
                        ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"])
         q11 = st.radio("You would rather go to", ["Beaches", "Mountains"])
         q12 = st.radio("Movies you enjoy the most",
@@ -167,24 +157,27 @@ if now < UNLOCK_TIME:
         # Situational
         q14 = st.radio("If extremely busy but someone important needs you",
                        ["Prioritize work", "Make time"])
-        q15 = st.radio("After a disagreement, you prefer to",
+        q15 = st.radio("After a disagreement, you prefer",
                        ["Cool off first", "Talk it out"])
 
         instagram = st.text_input("Instagram (optional, without @)")
         consent = st.checkbox("Allow my Instagram to be shared with matches")
         message = st.text_area("Optional message for matches (max 200 characters)", max_chars=200)
 
-        agree = st.checkbox("I confirm I am from NIT Jalandhar and agree to the above")
+        agree = st.checkbox("I confirm I am from NIT Jalandhar and agree to participate respectfully")
         submit = st.form_submit_button("Submit")
 
     if submit:
         if not alias.strip():
             st.error("Alias is required")
+        elif not email.strip().lower().endswith("@nitj.ac.in"):
+            st.error("Please enter a valid NIT Jalandhar official email ID")
         elif not agree:
-            st.error("Please confirm eligibility")
+            st.error("Please confirm eligibility to continue")
         else:
             db.collection("users").add({
                 "alias": alias.strip(),
+                "email_domain_verified": True,  # no email stored
                 "gender": gender,
                 "answers": {
                     "psych": [
@@ -215,8 +208,6 @@ if now < UNLOCK_TIME:
             })
             st.success("Response recorded. Matches will be revealed on 6th February at night 💫")
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 # ---------------- RESULTS MODE ----------------
 else:
     users = fetch_users()
@@ -225,7 +216,7 @@ else:
     me_u = users[aliases.index(me)]
 
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
-    st.caption("Matches below are based on psychological compatibility and shared interests.")
+    st.caption("Matches are shown based on psychological compatibility and shared interests.")
 
     for u in users:
         if u["alias"] == me:
@@ -253,4 +244,3 @@ else:
                 st.caption(f"💬 {u['message']}")
 
     st.markdown("</div>", unsafe_allow_html=True)
-
