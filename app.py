@@ -5,6 +5,7 @@ from datetime import datetime
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import hashlib
+import time
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -65,7 +66,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ---------------- TIMELINE ----------------
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6th Feb night
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6th Feb, night
 now = datetime.now()
 
 # ---------------- HELPERS ----------------
@@ -87,53 +88,61 @@ def fetch_users():
 def hash_email(email: str) -> str:
     return hashlib.sha256(email.lower().strip().encode()).hexdigest()
 
+def get_chat_id(a, b):
+    return "_".join(sorted([a, b]))
+
+def render_countdown(target_time):
+    remaining = int((target_time - datetime.now()).total_seconds())
+    if remaining <= 0:
+        return
+
+    d, r = divmod(remaining, 86400)
+    h, r = divmod(r, 3600)
+    m, s = divmod(r, 60)
+
+    st.markdown(
+        f"""
+        <div style="text-align:center; margin: 10px 0 25px 0;">
+            <div style="font-size:1.1rem; opacity:0.85;">⏳ Matches reveal in</div>
+            <div style="font-size:1.9rem; font-weight:700;">
+                {d:02d}d {h:02d}h {m:02d}m {s:02d}s
+            </div>
+            <div style="font-size:0.85rem; opacity:0.7;">
+                6th February, Night • Before Valentine’s Week
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    time.sleep(1)
+    st.experimental_rerun()
+
 # ---------------- HEADER ----------------
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Anonymous psychological compatibility • Exclusive to NIT Jalandhar")
 
-# ---------------- INFO ----------------
-st.markdown("""
-<div class="glass">
-<h3>Important information</h3>
-
-<ul>
-<li>This experience is exclusively for <b>NIT Jalandhar students</b>.</li>
-<li>Your identity remains anonymous throughout the process.</li>
-<li>Matches are based primarily on <b>psychological compatibility</b>, refined using interests.</li>
-<li>Only your alias, optional Instagram, and optional message are shared with matches.</li>
-</ul>
-
-<h4>Timeline</h4>
-<ul>
-<li><b>Now → 6th February:</b> Fill in your responses and interests.</li>
-<li><b>6th February:</b> Compatibility matching happens internally.</li>
-<li><b>6th February (Night):</b> Matches are revealed before Valentine’s Week.</li>
-</ul>
-
-<p class="small-note">
-Please participate respectfully. Honest responses lead to better matches.
-</p>
-</div>
-""", unsafe_allow_html=True)
+if now < UNLOCK_TIME:
+    render_countdown(UNLOCK_TIME)
 
 # ---------------- FORM MODE ----------------
 if now < UNLOCK_TIME:
 
     with st.form("form"):
         alias = st.text_input("Choose an anonymous alias")
-
         email = st.text_input("Official NIT Jalandhar Email ID")
+
         st.markdown(
             "<p class='small-note'>"
-            "This email is collected only to maintain exclusivity for NIT Jalandhar students. "
-            "It is never shared, never used for matching, and stored only in encrypted form."
+            "This email is collected only to maintain exclusivity. "
+            "It is stored in a secure, irreversible form and never shared."
             "</p>",
             unsafe_allow_html=True
         )
 
         gender = st.radio("I identify as", ["Male", "Female"])
 
-        # Psychological (8)
+        # Psychological
         q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
         q2 = scale_slider("I feel emotionally safe opening up")
         q3 = scale_slider("During conflict, I try to understand before reacting")
@@ -166,46 +175,34 @@ if now < UNLOCK_TIME:
 
         instagram = st.text_input("Instagram (optional, without @)")
         consent = st.checkbox("Allow my Instagram to be shared with matches")
-        message = st.text_area("Optional message for matches (max 200 characters)", max_chars=200)
+        message = st.text_area("Optional message for matches", max_chars=200)
 
-        agree = st.checkbox("I confirm I am from NIT Jalandhar and agree to participate respectfully")
+        agree = st.checkbox("I confirm I am from NIT Jalandhar")
         submit = st.form_submit_button("Submit")
 
     if submit:
         if not alias.strip():
             st.error("Alias is required")
-
-        elif not email.strip().lower().endswith("@nitj.ac.in"):
-            st.error("Please enter a valid NIT Jalandhar official email ID")
-
+        elif not email.lower().endswith("@nitj.ac.in"):
+            st.error("Please enter a valid NIT Jalandhar email")
         elif not agree:
-            st.error("Please confirm eligibility to continue")
-
+            st.error("Please confirm eligibility")
         else:
             email_hash = hash_email(email)
+            exists = db.collection("users").where("email_hash", "==", email_hash).get()
 
-            existing = db.collection("users") \
-                .where("email_hash", "==", email_hash) \
-                .limit(1) \
-                .get()
-
-            if existing:
-                st.warning(
-                    "You have already submitted your response. "
-                    "Please wait till 6th February for the matching results 💫"
-                )
+            if exists:
+                st.warning("You have already submitted. Please wait till 6th February 💫")
             else:
                 db.collection("users").add({
                     "alias": alias.strip(),
                     "email_hash": email_hash,
                     "gender": gender,
                     "answers": {
-                        "psych": [
-                            q1, q2, q3, q4, q5,
-                            bin_map(q6, "Handling things alone", "Leaning on someone"),
-                            bin_map(q7, "Thinking quietly", "Talking it out"),
-                            q8
-                        ],
+                        "psych": [q1, q2, q3, q4, q5,
+                                  bin_map(q6, "Handling things alone", "Leaning on someone"),
+                                  bin_map(q7, "Thinking quietly", "Talking it out"),
+                                  q8],
                         "interest": [
                             ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(q9),
                             ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(q10),
@@ -226,10 +223,9 @@ if now < UNLOCK_TIME:
                     },
                     "message": message.strip()
                 })
+                st.success("Response recorded. Matches will be revealed on 6th February at night 💘")
 
-                st.success("Response recorded. Matches will be revealed on 6th February at night 💫")
-
-# ---------------- RESULTS MODE ----------------
+# ---------------- RESULTS MODE (WITH CHAT) ----------------
 else:
     users = fetch_users()
     aliases = [u["alias"] for u in users]
@@ -242,7 +238,7 @@ else:
     me_u = users[aliases.index(me)]
 
     st.markdown("<div class='glass'>", unsafe_allow_html=True)
-    st.caption("Matches are shown based on psychological compatibility and shared interests.")
+    st.caption("Your matches and private chats")
 
     for u in users:
         if u["alias"] == me:
@@ -251,24 +247,39 @@ else:
         ps = cosine(me_u["answers"]["psych"], u["answers"]["psych"])
         it = cosine(me_u["answers"]["interest"], u["answers"]["interest"])
         si = cosine(me_u["answers"]["situation"], u["answers"]["situation"])
-
         score = 0.7 * ps + 0.2 * it + 0.1 * si
 
         if score > 0.75:
             st.markdown(
                 f"<div class='match'><b>{u['alias']}</b><br>"
-                f"Compatibility: <b>{round(score * 100, 2)}%</b>"
+                f"Compatibility: <b>{round(score*100,2)}%</b>"
                 f"<div class='why'>Why you matched:<br>"
                 f"- Similar emotional approach<br>"
-                f"- Overlapping interests<br>"
-                f"- Comparable decision-making style</div></div>",
+                f"- Shared interests<br>"
+                f"- Similar decision style</div></div>",
                 unsafe_allow_html=True
             )
 
-            if u["contact"]["share_instagram"]:
-                st.caption(f"📸 @{u['contact']['instagram']}")
+            chat_id = get_chat_id(me, u["alias"])
+            with st.expander("💬 Chat (text only)"):
+                msgs_ref = db.collection("chats").document(chat_id).collection("messages")
+                msgs = msgs_ref.order_by("timestamp").stream()
 
-            if u["message"]:
-                st.caption(f"💬 {u['message']}")
+                for m in msgs:
+                    d = m.to_dict()
+                    sender = "You" if d["sender"] == me else u["alias"]
+                    st.markdown(f"**{sender}:** {d['text']}")
+
+                new_msg = st.text_input(f"Message {u['alias']}", key=f"msg_{chat_id}")
+                if st.button("Send", key=f"send_{chat_id}") and new_msg.strip():
+                    if len(new_msg) > 300:
+                        st.warning("Message too long")
+                    else:
+                        msgs_ref.add({
+                            "sender": me,
+                            "text": new_msg.strip(),
+                            "timestamp": datetime.utcnow()
+                        })
+                        st.experimental_rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
