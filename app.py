@@ -124,7 +124,7 @@ if datetime.now() < UNLOCK_TIME:
 # ================== FORM MODE ==================
 if datetime.now() < UNLOCK_TIME:
 
-    st.markdown("<div class='glass'>", unsafe_allow_html=True)
+
     st.markdown("### Community Guidelines")
     st.markdown("""
     • Be respectful and honest  
