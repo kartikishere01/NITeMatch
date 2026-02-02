@@ -118,8 +118,7 @@ if now < UNLOCK_TIME:
     • Be respectful and honest  
     • No abusive or inappropriate language  
     • Responses influence matching quality  
-    • Only NIT Jalandhar students may participate 
-    • The email id will only be used for exclusivity and it will be saved as hash 
+    • Only NIT Jalandhar students may participate  
     """)
 
     with st.form("form"):
