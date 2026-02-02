@@ -5,7 +5,6 @@ from datetime import datetime
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 import hashlib
-import time
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -66,7 +65,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ---------------- TIMELINE ----------------
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)  # 6th Feb, night
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0)
 now = datetime.now()
 
 # ---------------- HELPERS ----------------
@@ -91,39 +90,9 @@ def hash_email(email: str) -> str:
 def get_chat_id(a, b):
     return "_".join(sorted([a, b]))
 
-def render_countdown(target_time):
-    remaining = int((target_time - datetime.now()).total_seconds())
-    if remaining <= 0:
-        return
-
-    d, r = divmod(remaining, 86400)
-    h, r = divmod(r, 3600)
-    m, s = divmod(r, 60)
-
-    st.markdown(
-        f"""
-        <div style="text-align:center; margin: 10px 0 25px 0;">
-            <div style="font-size:1.1rem; opacity:0.85;">⏳ Matches reveal in</div>
-            <div style="font-size:1.9rem; font-weight:700;">
-                {d:02d}d {h:02d}h {m:02d}m {s:02d}s
-            </div>
-            <div style="font-size:0.85rem; opacity:0.7;">
-                6th February, Night • Before Valentine’s Week
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    time.sleep(1)
-    st.experimental_rerun()
-
 # ---------------- HEADER ----------------
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Anonymous psychological compatibility • Exclusive to NIT Jalandhar")
-
-if now < UNLOCK_TIME:
-    render_countdown(UNLOCK_TIME)
 
 # ---------------- FORM MODE ----------------
 if now < UNLOCK_TIME:
@@ -189,9 +158,9 @@ if now < UNLOCK_TIME:
             st.error("Please confirm eligibility")
         else:
             email_hash = hash_email(email)
-            exists = db.collection("users").where("email_hash", "==", email_hash).get()
+            existing = db.collection("users").where("email_hash", "==", email_hash).get()
 
-            if exists:
+            if existing:
                 st.warning("You have already submitted. Please wait till 6th February 💫")
             else:
                 db.collection("users").add({
@@ -199,10 +168,12 @@ if now < UNLOCK_TIME:
                     "email_hash": email_hash,
                     "gender": gender,
                     "answers": {
-                        "psych": [q1, q2, q3, q4, q5,
-                                  bin_map(q6, "Handling things alone", "Leaning on someone"),
-                                  bin_map(q7, "Thinking quietly", "Talking it out"),
-                                  q8],
+                        "psych": [
+                            q1, q2, q3, q4, q5,
+                            bin_map(q6, "Handling things alone", "Leaning on someone"),
+                            bin_map(q7, "Thinking quietly", "Talking it out"),
+                            q8
+                        ],
                         "interest": [
                             ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(q9),
                             ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(q10),
@@ -223,16 +194,13 @@ if now < UNLOCK_TIME:
                     },
                     "message": message.strip()
                 })
+
                 st.success("Response recorded. Matches will be revealed on 6th February at night 💘")
 
 # ---------------- RESULTS MODE (WITH CHAT) ----------------
 else:
     users = fetch_users()
     aliases = [u["alias"] for u in users]
-
-    if not users:
-        st.info("No participants yet.")
-        st.stop()
 
     me = st.selectbox("Select your alias", aliases)
     me_u = users[aliases.index(me)]
@@ -247,6 +215,7 @@ else:
         ps = cosine(me_u["answers"]["psych"], u["answers"]["psych"])
         it = cosine(me_u["answers"]["interest"], u["answers"]["interest"])
         si = cosine(me_u["answers"]["situation"], u["answers"]["situation"])
+
         score = 0.7 * ps + 0.2 * it + 0.1 * si
 
         if score > 0.75:
@@ -260,7 +229,8 @@ else:
                 unsafe_allow_html=True
             )
 
-            chat_id = get_chat_id(me, u["alias"])
+            # ---------------- CHAT ----------------
+            chat_id = get_chat_id(me_u["alias"], u["alias"])
             with st.expander("💬 Chat (text only)"):
                 msgs_ref = db.collection("chats").document(chat_id).collection("messages")
                 msgs = msgs_ref.order_by("timestamp").stream()
@@ -270,7 +240,11 @@ else:
                     sender = "You" if d["sender"] == me else u["alias"]
                     st.markdown(f"**{sender}:** {d['text']}")
 
-                new_msg = st.text_input(f"Message {u['alias']}", key=f"msg_{chat_id}")
+                new_msg = st.text_input(
+                    f"Message {u['alias']}",
+                    key=f"msg_{chat_id}"
+                )
+
                 if st.button("Send", key=f"send_{chat_id}") and new_msg.strip():
                     if len(new_msg) > 300:
                         st.warning("Message too long")
