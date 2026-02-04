@@ -417,29 +417,27 @@ def show_compatibility_details(user1, user2):
     st.markdown("---")
     
     # Psychology comparison
-    st.markdown("### 🧠 Psychology & Values")
+    st.markdown("### 🧠 Psychological Compatibility")
     
     for i, question in enumerate(psych_questions):
         user1_val = user1_psych[i]
         user2_val = user2_psych[i]
         
-        # Determine similarity
-        if i < 5 or i == 7:  # Scale questions (1-6)
+        # For scaled questions (1-6)
+        if i not in [5, 6]:  # Questions that are NOT binary
             diff = abs(user1_val - user2_val)
-            if diff <= 1:
+            if diff == 0:
                 icon = "✅"
                 color = "#00ffe1"
-            elif diff <= 2:
+            elif diff <= 1:
                 icon = "🟡"
                 color = "#ffa500"
             else:
                 icon = "⚠️"
                 color = "#ff4fd8"
             
-            # Map numbers to labels
-            scale_labels = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
-            user1_label = scale_labels[user1_val - 1] if user1_val <= 6 else "Unknown"
-            user2_label = scale_labels[user2_val - 1] if user2_val <= 6 else "Unknown"
+            user1_label = SCALE[user1_val - 1]
+            user2_label = SCALE[user2_val - 1]
             
         else:  # Binary questions (0 or 1)
             if user1_val == user2_val:
@@ -752,10 +750,17 @@ if st.session_state.chat_with is None:
     all_users = fetch_users()
     matches = get_matches(current_user, all_users)
     
+    # 🔥 FIX: Gender-based match limits
+    # Females see top 9-10 matches, Males see top 4 matches
+    if current_user["gender"] == "Female":
+        max_matches = 10  # Show top 10 for females
+    else:  # Male
+        max_matches = 4   # Show top 4 for males
+    
     if not matches:
         st.info("No matches found above the threshold. Check back later!")
     else:
-        for match in matches[:10]:  # Show top 10
+        for match in matches[:max_matches]:
             match_user = match["user"]
             score = match["score"]
             
