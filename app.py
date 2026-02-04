@@ -370,6 +370,144 @@ def get_matches(current_user, all_users):
     
     return sorted(matches, key=lambda x: x["score"], reverse=True)
 
+def show_compatibility_details(user1, user2):
+    """Display detailed compatibility breakdown between two users"""
+    
+    # Question labels for display
+    psych_questions = [
+        "When overwhelmed, I prefer emotional closeness",
+        "I feel emotionally safe opening up",
+        "During conflict, I try to understand before reacting",
+        "Emotional loyalty matters more than attention",
+        "Relationships should help people grow",
+        "In difficult situations, I prefer",
+        "I process emotional pain by",
+        "I express care more through actions than words"
+    ]
+    
+    interest_questions = [
+        "Music era you connect with most",
+        "Preferred music genre",
+        "You would rather go to",
+        "Movies you enjoy the most"
+    ]
+    
+    # Get answers
+    user1_psych = user1["answers"]["psych"]
+    user2_psych = user2["answers"]["psych"]
+    user1_interest = user1["answers"]["interest"]
+    user2_interest = user2["answers"]["interest"]
+    
+    # Calculate similarity scores
+    psych1 = normalize(user1_psych)
+    psych2 = normalize(user2_psych)
+    interest1 = normalize(user1_interest)
+    interest2 = normalize(user2_interest)
+    
+    psych_score = round(cosine(psych1, psych2) * 100, 1)
+    interest_score = round(cosine(interest1, interest2) * 100, 1)
+    
+    # Display breakdown
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("🧠 Psychological Match", f"{psych_score}%")
+    with col2:
+        st.metric("🎵 Interest Match", f"{interest_score}%")
+    
+    st.markdown("---")
+    
+    # Psychology comparison
+    st.markdown("### 🧠 Psychology & Values")
+    
+    for i, question in enumerate(psych_questions):
+        user1_val = user1_psych[i]
+        user2_val = user2_psych[i]
+        
+        # Determine similarity
+        if i < 5 or i == 7:  # Scale questions (1-6)
+            diff = abs(user1_val - user2_val)
+            if diff <= 1:
+                icon = "✅"
+                color = "#00ffe1"
+            elif diff <= 2:
+                icon = "🟡"
+                color = "#ffa500"
+            else:
+                icon = "⚠️"
+                color = "#ff4fd8"
+            
+            # Map numbers to labels
+            scale_labels = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
+            user1_label = scale_labels[user1_val - 1] if user1_val <= 6 else "Unknown"
+            user2_label = scale_labels[user2_val - 1] if user2_val <= 6 else "Unknown"
+            
+        else:  # Binary questions (0 or 1)
+            if user1_val == user2_val:
+                icon = "✅"
+                color = "#00ffe1"
+            else:
+                icon = "⚠️"
+                color = "#ff4fd8"
+            
+            # Map to labels
+            if i == 5:  # Difficult situations
+                labels = ["Handling things alone", "Leaning on someone"]
+            else:  # i == 6, Emotional pain
+                labels = ["Thinking quietly", "Talking it out"]
+            
+            user1_label = labels[user1_val]
+            user2_label = labels[user2_val]
+        
+        st.markdown(f"""
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+            <div style="color: {color}; font-weight: 600; margin-bottom: 6px;">{icon} {question}</div>
+            <div style="font-size: 0.9rem; opacity: 0.8;">You: {user1_label} | Them: {user2_label}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Interests comparison
+    st.markdown("### 🎵 Interests & Lifestyle")
+    
+    # Define options for interests
+    interest_options = [
+        ["Before 2000", "2000–2009", "2010–2019", "2020–Present"],
+        ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"],
+        ["Beaches", "Mountains"],
+        ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"]
+    ]
+    
+    for i, question in enumerate(interest_questions):
+        user1_val = user1_interest[i]
+        user2_val = user2_interest[i]
+        
+        # Check if same
+        if user1_val == user2_val:
+            icon = "✅"
+            color = "#00ffe1"
+        else:
+            diff = abs(user1_val - user2_val)
+            if diff <= 1:
+                icon = "🟡"
+                color = "#ffa500"
+            else:
+                icon = "⚠️"
+                color = "#ff4fd8"
+        
+        user1_label = interest_options[i][user1_val]
+        user2_label = interest_options[i][user2_val]
+        
+        st.markdown(f"""
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
+            <div style="color: {color}; font-weight: 600; margin-bottom: 6px;">{icon} {question}</div>
+            <div style="font-size: 0.9rem; opacity: 0.8;">You: {user1_label} | Them: {user2_label}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.caption("✅ = Similar  |  🟡 = Somewhat different  |  ⚠️ = Different")
+
 # ================= HEADER =================
 st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
 st.caption("Anonymous psychological compatibility • NIT Jalandhar")
@@ -641,6 +779,10 @@ if st.session_state.chat_with is None:
             
             with col2:
                 st.markdown(f"<div style='font-size: 2rem; font-weight: 700; color: {score_color}; text-align: center; padding-top: 10px;'>{score}%</div>", unsafe_allow_html=True)
+            
+            # Add expandable section to see compatibility details
+            with st.expander(f"🔍 See what you have in common with {match_user['alias']}"):
+                show_compatibility_details(current_user, match_user)
             
             if st.button(f"💬 Chat with {match_user['alias']}", key=f"chat_{match_user['_id']}", use_container_width=True):
                 st.session_state.chat_with = match_user
