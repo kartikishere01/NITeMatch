@@ -80,7 +80,7 @@ db = firestore.client()
 # ================= TIME =================
 IST = timezone(timedelta(hours=5, minutes=30))
 
-# 🔴 UNLOCK DATE - Set to Feb 2, 2026, 8 PM IST
+# 🔴 UNLOCK DATE - Set to Feb 6, 2026, 8 PM IST
 UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, tzinfo=IST)
 
 MATCH_THRESHOLD = 0.50
@@ -129,6 +129,12 @@ def generate_magic_token():
 
 def send_magic_link(email, token):
     """Send magic link to user's email"""
+    
+    # Configuration check
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        st.error("⚠️ Email not configured. Please set up SMTP credentials.")
+        return False
+    
     try:
         # Create magic link
         magic_link = f"{BASE_URL}/?token={token}"
@@ -142,43 +148,83 @@ def send_magic_link(email, token):
         # HTML email body
         html = f"""
         <html>
-        <body style="font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
-                <h1 style="color: #667eea; text-align: center; margin-bottom: 20px;">💘 NITeMatch</h1>
-                <h2 style="color: #333; text-align: center;">Your Login Link is Ready!</h2>
-                
-                <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                    Click the button below to securely access your matches:
-                </p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{magic_link}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-                        🔐 Login to NITeMatch
-                    </a>
-                </div>
-                
-                <p style="color: #999; font-size: 14px; text-align: center; margin-top: 30px;">
-                    This link will expire in 15 minutes for security.
-                </p>
-                
-                <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
-                    If you didn't request this login link, please ignore this email.
-                </p>
-            </div>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f7f7f7;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f7f7f7; padding: 40px 20px;">
+                <tr>
+                    <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <tr>
+                                <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center;">
+                                    <h1 style="color: white; margin: 0; font-size: 32px;">💘 NITeMatch</h1>
+                                    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Your Login Link is Ready</p>
+                                </td>
+                            </tr>
+                            
+                            <!-- Content -->
+                            <tr>
+                                <td style="padding: 40px;">
+                                    <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                        Hi there! 👋
+                                    </p>
+                                    <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                        Click the button below to securely access your NITeMatch profile and view your matches:
+                                    </p>
+                                    
+                                    <!-- Button -->
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td align="center" style="padding: 20px 0;">
+                                                <a href="{magic_link}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 48px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                                                    🔐 Login to NITeMatch
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    
+                                    <p style="color: #999; font-size: 14px; text-align: center; margin: 20px 0 0 0;">
+                                        Or copy this link:<br>
+                                        <a href="{magic_link}" style="color: #667eea; word-break: break-all; font-size: 12px;">{magic_link}</a>
+                                    </p>
+                                </td>
+                            </tr>
+                            
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background: #f9f9f9; padding: 30px; border-top: 1px solid #eee;">
+                                    <p style="color: #999; font-size: 14px; text-align: center; margin: 0 0 10px 0;">
+                                        ⏰ This link will expire in <strong>15 minutes</strong> for security.
+                                    </p>
+                                    <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
+                                        If you didn't request this login link, please ignore this email.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                        
+                        <p style="color: #999; font-size: 12px; text-align: center; margin: 20px 0 0 0;">
+                            © 2026 NITeMatch • NIT Jalandhar
+                        </p>
+                    </td>
+                </tr>
+            </table>
         </body>
         </html>
         """
         
         # Plain text fallback
         text = f"""
-        NITeMatch - Your Login Link
-        
-        Click the link below to access your matches:
-        {magic_link}
-        
-        This link will expire in 15 minutes.
-        
-        If you didn't request this, please ignore this email.
+NITeMatch - Your Login Link
+
+Click the link below to access your matches:
+{magic_link}
+
+This link will expire in 15 minutes for security.
+
+If you didn't request this, please ignore this email.
+
+---
+© 2026 NITeMatch • NIT Jalandhar
         """
         
         part1 = MIMEText(text, 'plain')
@@ -188,14 +234,21 @@ def send_magic_link(email, token):
         msg.attach(part2)
         
         # Send email
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
         
         return True
+        
+    except smtplib.SMTPAuthenticationError:
+        st.error("❌ Email authentication failed. Check your App Password in secrets.")
+        return False
+    except smtplib.SMTPException as e:
+        st.error(f"❌ SMTP Error: {str(e)}")
+        return False
     except Exception as e:
-        st.error(f"Failed to send email: {str(e)}")
+        st.error(f"❌ Failed to send email: {str(e)}")
         return False
 
 def create_magic_link(email_hash, plain_email=None):
@@ -220,17 +273,8 @@ def create_magic_link(email_hash, plain_email=None):
     
     return token
 
-"""
-DEBUG VERSION - Replace your verify_magic_token function (lines 223-257)
-with this version to see what's happening
-"""
-
 def verify_magic_token(token):
     """Verify magic token and return user if valid"""
-    
-    # Debug: Show what token we're looking for
-    st.write(f"🔍 Looking for token: {token[:10]}...")
-    
     tokens = list(
         db.collection("magic_tokens")
         .where("token", "==", token)
@@ -240,37 +284,26 @@ def verify_magic_token(token):
     )
     
     if not tokens:
-        st.error("❌ Token not found in database")
-        st.info("Possible reasons: Token was already used, or wasn't created properly")
         return None
     
     token_doc = tokens[0]
     token_data = token_doc.to_dict()
     
-    # Debug: Show token data
-    st.write("✅ Token found in database!")
-    st.write(f"📅 Created at: {token_data.get('created_at')}")
-    st.write(f"⏰ Expires at: {token_data['expires_at']}")
-    st.write(f"🕐 Current time (IST): {datetime.now(IST)}")
-    
-    # Check if expired
+    # Check if expired - handle timezone properly
     expires_at = token_data["expires_at"]
     
-    # Handle both timezone-aware and naive datetimes
-    if expires_at.tzinfo is None:
+    # Convert Firestore timestamp to datetime with IST timezone
+    if hasattr(expires_at, 'timestamp'):
+        # It's a Firestore timestamp
+        expires_at = datetime.fromtimestamp(expires_at.timestamp(), tz=IST)
+    elif expires_at.tzinfo is None:
+        # It's a naive datetime, add IST timezone
         expires_at = expires_at.replace(tzinfo=IST)
     
     current_time = datetime.now(IST)
     
-    st.write(f"⏱️ Time remaining: {expires_at - current_time}")
-    
     if expires_at < current_time:
-        st.error("❌ Token has expired")
-        st.write(f"Expired at: {expires_at}")
-        st.write(f"Current time: {current_time}")
         return None
-    
-    st.success("✅ Token is still valid!")
     
     # Mark as used
     token_doc.reference.update({"used": True})
@@ -284,10 +317,7 @@ def verify_magic_token(token):
     )
     
     if users:
-        st.success("✅ User found! Logging in...")
         return users[0].to_dict() | {"_id": users[0].id}
-    else:
-        st.error("❌ User not found for this token")
     
     return None
 
