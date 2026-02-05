@@ -9,6 +9,7 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import re
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -18,57 +19,102 @@ st.set_page_config(
 )
 
 # ================= GLOBAL STYLES =================
-st.markdown("""
+def apply_styles(has_matches=False):
+    """Apply dynamic styles based on match status"""
+    
+    if has_matches:
+        # 🌸 PINK GRADIENT THEME when matches are found! 💕
+        background = """
+        background:
+            radial-gradient(circle at 20% 20%, rgba(255,20,147,0.45), transparent 35%),
+            radial-gradient(circle at 80% 10%, rgba(255,105,180,0.40), transparent 40%),
+            radial-gradient(circle at 50% 80%, rgba(255,0,127,0.35), transparent 45%),
+            radial-gradient(circle at 10% 90%, rgba(255,182,193,0.30), transparent 40%),
+            radial-gradient(circle at 90% 70%, rgba(255,20,147,0.25), transparent 50%),
+            linear-gradient(135deg, #1a0a14 0%, #2d0a1f 50%, #1a0a14 100%);
+    """
+    else:
+        # DEFAULT THEME
+        background = """
+        background:
+            radial-gradient(circle at 20% 20%, rgba(255,79,216,0.30), transparent 40%),
+            radial-gradient(circle at 80% 10%, rgba(0,255,225,0.30), transparent 40%),
+            radial-gradient(circle at 50% 80%, rgba(106,0,255,0.30), transparent 45%),
+            #05000a;
+    """
+    
+    st.markdown(f"""
 <style>
-.stApp {
-    background:
-        radial-gradient(circle at 20% 20%, rgba(255,79,216,0.30), transparent 40%),
-        radial-gradient(circle at 80% 10%, rgba(0,255,225,0.30), transparent 40%),
-        radial-gradient(circle at 50% 80%, rgba(106,0,255,0.30), transparent 45%),
-        #05000a;
+.stApp {{
+    {background}
     color: white;
-}
-.block-container { max-width: 820px; padding-top: 2rem; }
-.title {
+    transition: background 1.5s ease-in-out;
+}}
+.block-container {{ max-width: 820px; padding-top: 2rem; }}
+.title {{
     font-size: 3rem;
     font-weight: 900;
     text-align: center;
     background: linear-gradient(90deg, #ff4fd8, #00ffe1);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-}
-.glass {
+}}
+.glass {{
     background: rgba(12,12,22,0.88);
     backdrop-filter: blur(18px);
     border-radius: 24px;
     padding: 28px;
     margin-bottom: 24px;
-}
-.small-note { font-size: 0.8rem; opacity: 0.75; }
+}}
+.small-note {{ font-size: 0.8rem; opacity: 0.75; }}
 
 /* Better button styling */
-.stButton button {
+.stButton button {{
     background: linear-gradient(135deg, rgba(255,79,216,0.3), rgba(0,255,225,0.3));
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 12px;
     color: white;
     font-weight: 600;
     transition: all 0.3s ease;
-}
-.stButton button:hover {
+}}
+.stButton button:hover {{
     background: linear-gradient(135deg, rgba(255,79,216,0.5), rgba(0,255,225,0.5));
     border: 1px solid rgba(255,255,255,0.4);
     transform: translateY(-2px);
-}
+}}
 
 /* Clean dividers */
-hr {
+hr {{
     border: none;
     border-top: 1px solid rgba(255,255,255,0.1);
     margin: 1.5rem 0;
-}
+}}
+
+/* Match celebration animation */
+@keyframes pulse {{
+    0%, 100% {{ opacity: 0.6; transform: scale(1); }}
+    50% {{ opacity: 1; transform: scale(1.02); }}
+}}
+
+.match-glow {{
+    animation: pulse 2s ease-in-out infinite;
+}}
+
+@keyframes heartbeat {{
+    0%, 100% {{ transform: scale(1); }}
+    10%, 30% {{ transform: scale(1.1); }}
+    20%, 40% {{ transform: scale(1); }}
+}}
+
+.heart-beat {{
+    animation: heartbeat 1.5s ease-in-out infinite;
+    display: inline-block;
+}}
 </style>
 """, unsafe_allow_html=True)
+
+# Apply default styles initially
+apply_styles()
 
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
@@ -87,22 +133,19 @@ MATCH_THRESHOLD = 0.50
 SCALE = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
 
 # ================= EMAIL CONFIG =================
-# You'll need to set these in Streamlit secrets
 SMTP_SERVER = st.secrets.get("smtp", {}).get("server", "smtp.gmail.com")
 SMTP_PORT = st.secrets.get("smtp", {}).get("port", 587)
 SMTP_EMAIL = st.secrets.get("smtp", {}).get("email", "")
 SMTP_PASSWORD = st.secrets.get("smtp", {}).get("password", "")
-
-# Base URL for your deployed app (update this when deployed)
 BASE_URL = st.secrets.get("app", {}).get("base_url", "http://localhost:8501")
+
+# Rate limiting for magic links
+MAGIC_LINK_COOLDOWN = 60  # seconds between requests per email
 
 # ================= HELPERS =================
 def scale_slider(label):
     val = st.select_slider(label, options=SCALE)
     return SCALE.index(val) + 1
-
-def bin_map(x, a, b):
-    return 0 if x == a else 1
 
 def normalize(v):
     v = np.array(v, dtype=float)
@@ -117,11 +160,77 @@ def cosine(a, b):
 def hash_email(email):
     return hashlib.sha256(email.lower().strip().encode()).hexdigest()
 
-def fetch_users():
-    return [
-        doc.to_dict() | {"_id": doc.id}
-        for doc in db.collection("users").stream()
-    ]
+def validate_nitj_email(email):
+    """Validate if email is from NIT Jalandhar"""
+    email = email.lower().strip()
+    pattern = r'^[a-zA-Z0-9._%+-]+@nitj\.ac\.in$'
+    return re.match(pattern, email) is not None
+
+def check_alias_exists(alias):
+    """Check if alias is already taken"""
+    users = list(
+        db.collection("users")
+        .where("alias", "==", alias)
+        .limit(1)
+        .stream()
+    )
+    return len(users) > 0
+
+def check_email_exists(email_hash):
+    """Check if email is already registered"""
+    users = list(
+        db.collection("users")
+        .where("email_hash", "==", email_hash)
+        .limit(1)
+        .stream()
+    )
+    return len(users) > 0
+
+def can_send_magic_link(email_hash):
+    """Check if user can request a new magic link (rate limiting)"""
+    recent_tokens = list(
+        db.collection("magic_tokens")
+        .where("email_hash", "==", email_hash)
+        .order_by("created_at", direction=firestore.Query.DESCENDING)
+        .limit(1)
+        .stream()
+    )
+    
+    if not recent_tokens:
+        return True
+    
+    last_token = recent_tokens[0].to_dict()
+    created_at = last_token["created_at"]
+    
+    # Handle Firestore timestamp
+    if hasattr(created_at, 'timestamp'):
+        created_at = datetime.fromtimestamp(created_at.timestamp(), tz=IST)
+    elif created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=IST)
+    
+    time_since = (datetime.now(IST) - created_at).total_seconds()
+    return time_since >= MAGIC_LINK_COOLDOWN
+
+def cleanup_expired_tokens():
+    """Remove expired magic link tokens"""
+    try:
+        now = datetime.now(IST)
+        expired = db.collection("magic_tokens").where("expires_at", "<", now).stream()
+        
+        batch = db.batch()
+        count = 0
+        for doc in expired:
+            batch.delete(doc.reference)
+            count += 1
+            if count >= 500:  # Firestore batch limit
+                batch.commit()
+                batch = db.batch()
+                count = 0
+        
+        if count > 0:
+            batch.commit()
+    except Exception:
+        pass  # Silent fail for cleanup
 
 def generate_magic_token():
     """Generate a secure random token for magic links"""
@@ -130,22 +239,18 @@ def generate_magic_token():
 def send_magic_link(email, token):
     """Send magic link to user's email"""
     
-    # Configuration check
     if not SMTP_EMAIL or not SMTP_PASSWORD:
-        st.error("⚠️ Email not configured. Please set up SMTP credentials.")
+        st.error("⚠️ Email not configured. Please contact admin.")
         return False
     
     try:
-        # Create magic link
         magic_link = f"{BASE_URL}/?token={token}"
         
-        # Create email
         msg = MIMEMultipart('alternative')
         msg['Subject'] = "🔐 Your NITeMatch Login Link"
         msg['From'] = SMTP_EMAIL
         msg['To'] = email
         
-        # HTML email body
         html = f"""
         <html>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f7f7f7;">
@@ -153,7 +258,6 @@ def send_magic_link(email, token):
                 <tr>
                     <td align="center">
                         <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                            <!-- Header -->
                             <tr>
                                 <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center;">
                                     <h1 style="color: white; margin: 0; font-size: 32px;">💘 NITeMatch</h1>
@@ -161,7 +265,6 @@ def send_magic_link(email, token):
                                 </td>
                             </tr>
                             
-                            <!-- Content -->
                             <tr>
                                 <td style="padding: 40px;">
                                     <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
@@ -171,7 +274,6 @@ def send_magic_link(email, token):
                                         Click the button below to securely access your NITeMatch profile and view your matches:
                                     </p>
                                     
-                                    <!-- Button -->
                                     <table width="100%" cellpadding="0" cellspacing="0">
                                         <tr>
                                             <td align="center" style="padding: 20px 0;">
@@ -189,7 +291,6 @@ def send_magic_link(email, token):
                                 </td>
                             </tr>
                             
-                            <!-- Footer -->
                             <tr>
                                 <td style="background: #f9f9f9; padding: 30px; border-top: 1px solid #eee;">
                                     <p style="color: #999; font-size: 14px; text-align: center; margin: 0 0 10px 0;">
@@ -212,7 +313,6 @@ def send_magic_link(email, token):
         </html>
         """
         
-        # Plain text fallback
         text = f"""
 NITeMatch - Your Login Link
 
@@ -233,7 +333,6 @@ If you didn't request this, please ignore this email.
         msg.attach(part1)
         msg.attach(part2)
         
-        # Send email
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
@@ -242,21 +341,17 @@ If you didn't request this, please ignore this email.
         return True
         
     except smtplib.SMTPAuthenticationError:
-        st.error("❌ Email authentication failed. Check your App Password in secrets.")
-        return False
-    except smtplib.SMTPException as e:
-        st.error(f"❌ SMTP Error: {str(e)}")
+        st.error("❌ Email authentication failed. Please contact admin.")
         return False
     except Exception as e:
-        st.error(f"❌ Failed to send email: {str(e)}")
+        st.error(f"❌ Failed to send email. Please try again later.")
         return False
 
-def create_magic_link(email_hash, plain_email=None):
+def create_magic_link(email_hash):
     """Create a magic link token and store it in database"""
     token = generate_magic_token()
     expiry = datetime.now(IST) + timedelta(minutes=15)
     
-    # Store token in database
     token_data = {
         "token": token,
         "email_hash": email_hash,
@@ -264,10 +359,6 @@ def create_magic_link(email_hash, plain_email=None):
         "expires_at": expiry,
         "used": False
     }
-    
-    # Store plain email if provided (for new users)
-    if plain_email:
-        token_data["email"] = plain_email
     
     db.collection("magic_tokens").add(token_data)
     
@@ -289,15 +380,12 @@ def verify_magic_token(token):
     token_doc = tokens[0]
     token_data = token_doc.to_dict()
     
-    # Check if expired - handle timezone properly
+    # Check if expired
     expires_at = token_data["expires_at"]
     
-    # Convert Firestore timestamp to datetime with IST timezone
     if hasattr(expires_at, 'timestamp'):
-        # It's a Firestore timestamp
         expires_at = datetime.fromtimestamp(expires_at.timestamp(), tz=IST)
     elif expires_at.tzinfo is None:
-        # It's a naive datetime, add IST timezone
         expires_at = expires_at.replace(tzinfo=IST)
     
     current_time = datetime.now(IST)
@@ -321,19 +409,11 @@ def verify_magic_token(token):
     
     return None
 
-def update_user_email(email_hash, plain_email):
-    """Update existing user record with plain email for future magic links"""
-    users = list(
-        db.collection("users")
-        .where("email_hash", "==", email_hash)
-        .limit(1)
-        .stream()
-    )
-    
-    if users:
-        users[0].reference.update({"email": plain_email})
-        return True
-    return False
+def fetch_users():
+    return [
+        doc.to_dict() | {"_id": doc.id}
+        for doc in db.collection("users").stream()
+    ]
 
 def compute_compatibility(user1, user2):
     """Compute psychological and interest compatibility"""
@@ -373,7 +453,6 @@ def get_matches(current_user, all_users):
 def show_compatibility_details(user1, user2):
     """Display detailed compatibility breakdown between two users"""
     
-    # Question labels for display
     psych_questions = [
         "When overwhelmed, I prefer emotional closeness",
         "I feel emotionally safe opening up",
@@ -392,13 +471,11 @@ def show_compatibility_details(user1, user2):
         "Movies you enjoy the most"
     ]
     
-    # Get answers
     user1_psych = user1["answers"]["psych"]
     user2_psych = user2["answers"]["psych"]
     user1_interest = user1["answers"]["interest"]
     user2_interest = user2["answers"]["interest"]
     
-    # Calculate similarity scores
     psych1 = normalize(user1_psych)
     psych2 = normalize(user2_psych)
     interest1 = normalize(user1_interest)
@@ -407,7 +484,6 @@ def show_compatibility_details(user1, user2):
     psych_score = round(cosine(psych1, psych2) * 100, 1)
     interest_score = round(cosine(interest1, interest2) * 100, 1)
     
-    # Display breakdown
     col1, col2 = st.columns(2)
     with col1:
         st.metric("🧠 Psychological Match", f"{psych_score}%")
@@ -416,15 +492,13 @@ def show_compatibility_details(user1, user2):
     
     st.markdown("---")
     
-    # Psychology comparison
     st.markdown("### 🧠 Psychological Compatibility")
     
     for i, question in enumerate(psych_questions):
         user1_val = user1_psych[i]
         user2_val = user2_psych[i]
         
-        # For scaled questions (1-6)
-        if i not in [5, 6]:  # Questions that are NOT binary
+        if i not in [5, 6]:
             diff = abs(user1_val - user2_val)
             if diff == 0:
                 icon = "✅"
@@ -439,7 +513,7 @@ def show_compatibility_details(user1, user2):
             user1_label = SCALE[user1_val - 1]
             user2_label = SCALE[user2_val - 1]
             
-        else:  # Binary questions (0 or 1)
+        else:
             if user1_val == user2_val:
                 icon = "✅"
                 color = "#00ffe1"
@@ -447,10 +521,9 @@ def show_compatibility_details(user1, user2):
                 icon = "⚠️"
                 color = "#ff4fd8"
             
-            # Map to labels
-            if i == 5:  # Difficult situations
+            if i == 5:
                 labels = ["Handling things alone", "Leaning on someone"]
-            else:  # i == 6, Emotional pain
+            else:
                 labels = ["Thinking quietly", "Talking it out"]
             
             user1_label = labels[user1_val]
@@ -465,10 +538,8 @@ def show_compatibility_details(user1, user2):
     
     st.markdown("---")
     
-    # Interests comparison
     st.markdown("### 🎵 Interests & Lifestyle")
     
-    # Define options for interests
     interest_options = [
         ["Before 2000", "2000–2009", "2010–2019", "2020–Present"],
         ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"],
@@ -480,7 +551,6 @@ def show_compatibility_details(user1, user2):
         user1_val = user1_interest[i]
         user2_val = user2_interest[i]
         
-        # Check if same
         if user1_val == user2_val:
             icon = "✅"
             color = "#00ffe1"
@@ -521,6 +591,9 @@ with st.expander("📜 Guidelines & Safety"):
 - Login links expire in 15 minutes
 """)
 
+# Clean up expired tokens periodically
+cleanup_expired_tokens()
+
 # ================= CHECK FOR MAGIC LINK TOKEN =================
 query_params = st.query_params
 if "token" in query_params:
@@ -530,7 +603,6 @@ if "token" in query_params:
     if user:
         st.session_state.logged_in = True
         st.session_state.current_user = user
-        # Clear the token from URL
         st.query_params.clear()
         st.success("✅ Successfully logged in!")
         st.rerun()
@@ -538,325 +610,269 @@ if "token" in query_params:
         st.error("🚫 Invalid or expired login link. Please request a new one.")
         st.query_params.clear()
 
-# ================= BEFORE UNLOCK =================
-now = datetime.now(IST)
-
-if now < UNLOCK_TIME:
-    remaining = UNLOCK_TIME - now
-
-    st.markdown(f"""
-    <div class="glass" style="text-align:center;">
-        <div>⏳ Matches reveal in</div>
-        <div style="font-size:1.8rem;font-weight:700;">
-            {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
+# ================= CHECK IF LOGGED IN =================
+if st.session_state.get("logged_in", False):
+    current_user = st.session_state.current_user
+    
+    # Check if unlock time has passed
+    now = datetime.now(IST)
+    
+    if now >= UNLOCK_TIME:
+        # 🎉 MATCHES ARE UNLOCKED!
+        all_users = fetch_users()
+        matches = get_matches(current_user, all_users)
+        
+        # 🌸 APPLY PINK GRADIENT IF MATCHES EXIST! 💕
+        if matches:
+            apply_styles(has_matches=True)
+        
+        st.markdown(f"""
+        <div class="glass match-glow">
+            <h2 style="text-align:center;">
+                <span class="heart-beat">💕</span> Your Matches, {current_user['alias']}! <span class="heart-beat">💕</span>
+            </h2>
         </div>
-        <div class="small-note">6th February • Night</div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        
+        if not matches:
+            st.markdown("""
+            <div class="glass" style="text-align:center;">
+                <div style="font-size:3rem;">😔</div>
+                <div style="font-size:1.3rem;margin-top:1rem;">No matches yet</div>
+                <div class="small-note" style="margin-top:0.5rem;">
+                Check back later as more people join!
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="text-align:center;margin-bottom:2rem;">
+                <div style="font-size:1.5rem;font-weight:700;background:linear-gradient(90deg,#ff1493,#ff69b4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                    Found {len(matches)} compatible match{"es" if len(matches) != 1 else ""}!
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            for idx, match in enumerate(matches, 1):
+                matched_user = match["user"]
+                score = match["score"]
+                
+                with st.expander(f"💘 Match #{idx}: {matched_user['alias']} • {score}% compatible", expanded=(idx == 1)):
+                    st.markdown(f"""
+                    <div class="glass">
+                        <div style="font-size:1.2rem;font-weight:600;margin-bottom:1rem;">
+                            {matched_user['alias']}
+                        </div>
+                        <div style="margin-bottom:0.5rem;">🎓 <strong>Year:</strong> {matched_user.get('year', 'Not specified')}</div>
+                        <div style="margin-bottom:0.5rem;">📚 <strong>Branch:</strong> {matched_user.get('branch', 'Not specified')}</div>
+                        <div style="margin-bottom:1rem;">💬 <strong>Bio:</strong> {matched_user.get('bio', 'No bio provided')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("---")
+                    show_compatibility_details(current_user, matched_user)
+        
+        if st.button("🚪 Logout"):
+            st.session_state.logged_in = False
+            st.session_state.current_user = None
+            st.rerun()
+    
+    else:
+        # Still before unlock time
+        remaining = UNLOCK_TIME - now
+        st.markdown(f"""
+        <div class="glass" style="text-align:center;">
+            <div style="font-size:1.2rem;margin-bottom:1rem;">Welcome back, {current_user['alias']}!</div>
+            <div>⏳ Matches reveal in</div>
+            <div style="font-size:1.8rem;font-weight:700;">
+                {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
+            </div>
+            <div class="small-note">6th February • 8:00 PM IST</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚪 Logout"):
+            st.session_state.logged_in = False
+            st.session_state.current_user = None
+            st.rerun()
 
-    with st.form("pre_unlock_form"):
-        alias = st.text_input("Choose an anonymous alias")
+# ================= NOT LOGGED IN =================
+else:
+    now = datetime.now(IST)
+    
+    # ================= BEFORE UNLOCK =================
+    if now < UNLOCK_TIME:
+        remaining = UNLOCK_TIME - now
 
-        st.markdown("""
-        <div class="small-note">
-        <b>Important:</b> Email is collected only to ensure NIT Jalandhar exclusivity.  
-        It is encrypted and never shown to anyone. You'll receive a login link via email.
+        st.markdown(f"""
+        <div class="glass" style="text-align:center;">
+            <div>⏳ Matches reveal in</div>
+            <div style="font-size:1.8rem;font-weight:700;">
+                {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
+            </div>
+            <div class="small-note">6th February • 8:00 PM IST</div>
         </div>
         """, unsafe_allow_html=True)
 
-        email = st.text_input("Official NIT Jalandhar Email ID")
-        gender = st.radio("I identify as", ["Male", "Female"])
+        st.markdown("<div class='glass'><h3>📝 Registration Form</h3></div>", unsafe_allow_html=True)
 
-        q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
-        q2 = scale_slider("I feel emotionally safe opening up")
-        q3 = scale_slider("During conflict, I try to understand before reacting")
-        q4 = scale_slider("Emotional loyalty matters more than attention")
-        q5 = scale_slider("Relationships should help people grow")
+        with st.form("pre_unlock_form"):
+            alias = st.text_input("Choose an anonymous alias", max_chars=30)
 
-        q6 = st.radio("In difficult situations, I prefer",
-                      ["Handling things alone", "Leaning on someone"])
-        q7 = st.radio("I process emotional pain by",
-                      ["Thinking quietly", "Talking it out"])
-        q8 = scale_slider("I express care more through actions than words")
+            st.markdown("""
+            <div class="small-note">
+            <b>Important:</b> Email is collected only to ensure NIT Jalandhar exclusivity.  
+            It is encrypted and never shown to anyone. You'll receive a login link via email.
+            </div>
+            """, unsafe_allow_html=True)
 
-        q9 = st.radio("Music era you connect with most",
-                      ["Before 2000", "2000–2009", "2010–2019", "2020–Present"])
-        q10 = st.radio("Preferred music genre",
-                       ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"])
-        q11 = st.radio("You would rather go to", ["Beaches", "Mountains"])
-        q12 = st.radio("Movies you enjoy the most",
-                       ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"])
-
-        st.markdown("### 🌱 Visible to your match")
-        note = st.text_area("Short message", max_chars=120)
-        instagram = st.text_input("Instagram username (optional)")
-
-        agree = st.checkbox("I confirm I am from NIT Jalandhar")
-        submit = st.form_submit_button("Submit")
-
-    if submit:
-        if not alias or not email.endswith("@nitj.ac.in") or not agree:
-            st.error("Please fill all fields correctly")
-        else:
-            email_hash = hash_email(email)
-            existing = list(
-                db.collection("users")
-                .where("email_hash", "==", email_hash)
-                .limit(1)
-                .stream()
-            )
-            if existing:
-                st.warning("You have already submitted.")
-            else:
-                db.collection("users").add({
-                    "alias": alias.strip(),
-                    "email_hash": email_hash,
-                    "email": email.lower().strip(),  # Store actual email for sending login links
-                    "gender": gender,
-                    "instagram": instagram.strip(),
-                    "note": note.strip(),
-                    "answers": {
-                        "psych": [q1, q2, q3, q4, q5,
-                                  bin_map(q6, "Handling things alone", "Leaning on someone"),
-                                  bin_map(q7, "Thinking quietly", "Talking it out"),
-                                  q8],
-                        "interest": [
-                            ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(q9),
-                            ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(q10),
-                            bin_map(q11, "Beaches", "Mountains"),
-                            ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(q12)
-                        ]
-                    }
-                })
-                st.success("✅ Response recorded. You'll receive a login link via email on 6th Feb 💘")
-
-    st.stop()
-
-# ================= AFTER UNLOCK - HYBRID LOGIN =================
-
-# Initialize session state
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
-if "chat_with" not in st.session_state:
-    st.session_state.chat_with = None
-
-# ================= HYBRID LOGIN SECTION =================
-if not st.session_state.logged_in:
-    st.markdown("""
-    <div class="glass">
-        <h2>🎉 Matches Unlocked</h2>
-        <p>Choose your login method:</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Create tabs for different login methods
-    tab1, tab2 = st.tabs(["🔐 Magic Link (Recommended)", "📝 Manual Login"])
-    
-    with tab1:
-        st.info("We'll send you a secure login link that expires in 15 minutes.")
-        
-        with st.form("magic_link_form"):
-            magic_email = st.text_input("Your NIT Jalandhar email")
-            send_link = st.form_submit_button("Send Login Link 📨")
-        
-        if send_link:
-            if not magic_email.endswith("@nitj.ac.in"):
-                st.error("Please enter a valid NIT Jalandhar email address")
-            else:
-                email_hash = hash_email(magic_email)
-                users = list(
-                    db.collection("users")
-                    .where("email_hash", "==", email_hash)
-                    .limit(1)
-                    .stream()
-                )
-                
-                if not users:
-                    st.error("❌ Email not found. Make sure you've already submitted your form before Feb 6th.")
-                else:
-                    user_data = users[0].to_dict()
-                    
-                    # Check if user has plain email stored
-                    if "email" in user_data and user_data["email"]:
-                        # User has email, can send magic link
-                        token = create_magic_link(email_hash, magic_email)
-                        if send_magic_link(magic_email, token):
-                            st.success("✅ Login link sent! Check your email inbox (and spam folder).")
-                            st.info("The link will expire in 15 minutes for security.")
-                    else:
-                        # Old user without email - update it and send link
-                        update_user_email(email_hash, magic_email)
-                        token = create_magic_link(email_hash, magic_email)
-                        if send_magic_link(magic_email, token):
-                            st.success("✅ Login link sent! Check your email inbox (and spam folder).")
-                            st.info("The link will expire in 15 minutes for security.")
-    
-    with tab2:
-        st.warning("⚠️ This method is for users who can't receive emails. Magic link is more secure!")
-        
-        with st.form("manual_login_form"):
-            st.subheader("Manual Login")
-            manual_alias = st.text_input("Your alias")
-            manual_email = st.text_input("Your NIT Jalandhar email")
-            manual_submit = st.form_submit_button("Login")
-        
-        if manual_submit:
-            if not manual_alias or not manual_email.endswith("@nitj.ac.in"):
-                st.error("Please enter valid credentials")
-            else:
-                email_hash = hash_email(manual_email)
-                users = list(
-                    db.collection("users")
-                    .where("email_hash", "==", email_hash)
-                    .where("alias", "==", manual_alias.strip())
-                    .limit(1)
-                    .stream()
-                )
-                
-                if users:
-                    user_data = users[0].to_dict() | {"_id": users[0].id}
-                    
-                    # Update email if not already stored (for old users)
-                    if "email" not in user_data or not user_data.get("email"):
-                        update_user_email(email_hash, manual_email)
-                    
-                    st.session_state.logged_in = True
-                    st.session_state.current_user = user_data
-                    st.success("✅ Logged in successfully!")
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials. Make sure you've already submitted your form.")
-    
-    st.stop()
-
-# ================= MATCHES VIEW =================
-current_user = st.session_state.current_user
-
-if st.session_state.chat_with is None:
-    st.markdown(f"""
-    <div class="glass">
-        <h3>Welcome back, {current_user['alias']}! 💘</h3>
-        <p>Here are your most compatible matches</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("🚪 Logout"):
-        st.session_state.logged_in = False
-        st.session_state.current_user = None
-        st.rerun()
-    
-    all_users = fetch_users()
-    matches = get_matches(current_user, all_users)
-    
-    # 🔥 FIX: Gender-based match limits
-    # Females see top 9-10 matches, Males see top 4 matches
-    if current_user["gender"] == "Female":
-        max_matches = 10  # Show top 10 for females
-    else:  # Male
-        max_matches = 4   # Show top 4 for males
-    
-    if not matches:
-        st.info("No matches found above the threshold. Check back later!")
-    else:
-        for match in matches[:max_matches]:
-            match_user = match["user"]
-            score = match["score"]
+            email = st.text_input("Official NIT Jalandhar Email (@nitj.ac.in)", max_chars=100)
             
-            # Determine score color
-            if score >= 75:
-                score_color = "#00ffe1"
-            elif score >= 60:
-                score_color = "#ffa500"
-            else:
-                score_color = "#ff4fd8"
-            
-            # Create match card using columns for better control
-            col1, col2 = st.columns([4, 1])
-            
-            with col1:
-                st.markdown(f"### {match_user['alias']}")
-                if match_user.get('note'):
-                    st.write(match_user['note'])
-                if match_user.get('instagram'):
-                    st.caption(f"📷 @{match_user['instagram']}")
-            
-            with col2:
-                st.markdown(f"<div style='font-size: 2rem; font-weight: 700; color: {score_color}; text-align: center; padding-top: 10px;'>{score}%</div>", unsafe_allow_html=True)
-            
-            # Add expandable section to see compatibility details
-            with st.expander(f"🔍 See what you have in common with {match_user['alias']}"):
-                show_compatibility_details(current_user, match_user)
-            
-            if st.button(f"💬 Chat with {match_user['alias']}", key=f"chat_{match_user['_id']}", use_container_width=True):
-                st.session_state.chat_with = match_user
-                st.rerun()
+            gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
+            year = st.selectbox("Year", ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year (B.Tech + M.Tech)"])
+            branch = st.text_input("Branch (e.g., CSE, ECE, ME)", max_chars=50)
+            bio = st.text_area("Short Bio (optional - describe yourself)", max_chars=250, height=100)
             
             st.markdown("---")
-
-else:
-    # ================= CHAT VIEW =================
-    chat_partner = st.session_state.chat_with
-    
-    st.markdown(f"""
-    <div class="glass">
-        <h3>💬 Chat with {chat_partner['alias']}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("⬅️ Back to matches"):
-        st.session_state.chat_with = None
-        st.rerun()
-    
-    # Create unique chat ID (sorted to ensure same ID regardless of who initiated)
-    chat_ids = sorted([current_user["_id"], chat_partner["_id"]])
-    chat_id = f"{chat_ids[0]}_{chat_ids[1]}"
-    
-    # Display messages
-    messages_ref = db.collection("chats").document(chat_id).collection("messages").order_by("timestamp")
-    messages = [msg.to_dict() for msg in messages_ref.stream()]
-    
-    # Container for messages
-    with st.container():
-        if messages:
-            for msg in messages:
-                sender = "You" if msg["sender_id"] == current_user["_id"] else chat_partner["alias"]
-                is_user = msg["sender_id"] == current_user["_id"]
+            st.markdown("### 🧠 Psychological Questions")
+            st.caption("Answer honestly for better matches")
+            
+            q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
+            q2 = scale_slider("I feel emotionally safe opening up")
+            q3 = scale_slider("During conflict, I try to understand before reacting")
+            q4 = scale_slider("Emotional loyalty matters more than attention")
+            q5 = scale_slider("Relationships should help people grow")
+            q6 = st.radio("In difficult situations, I prefer", ["Handling things alone", "Leaning on someone"], horizontal=True)
+            q7 = st.radio("I process emotional pain by", ["Thinking quietly", "Talking it out"], horizontal=True)
+            q8 = scale_slider("I express care more through actions than words")
+            
+            st.markdown("---")
+            st.markdown("### 🎵 Interests & Preferences")
+            
+            music_era = st.radio("Music era you connect with most", 
+                ["Before 2000", "2000–2009", "2010–2019", "2020–Present"], horizontal=True)
+            music_genre = st.radio("Preferred music genre",
+                ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"], horizontal=True)
+            travel = st.radio("You would rather go to", ["Beaches", "Mountains"], horizontal=True)
+            movies = st.radio("Movies you enjoy the most",
+                ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"], horizontal=True)
+            
+            submitted = st.form_submit_button("🚀 Submit & Get Login Link", use_container_width=True)
+            
+            if submitted:
+                # Validation
+                errors = []
                 
-                # Use columns to align messages
-                if is_user:
-                    col1, col2 = st.columns([1, 3])
-                    with col2:
-                        st.markdown(f"""
-                        <div style="background: rgba(0,255,225,0.15); padding: 10px 14px; border-radius: 12px; margin: 8px 0;">
-                            <div style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px;">You</div>
-                            <div>{msg['text']}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                if not alias or len(alias.strip()) < 2:
+                    errors.append("❌ Please provide a valid alias (at least 2 characters)")
+                
+                if not email:
+                    errors.append("❌ Email is required")
+                elif not validate_nitj_email(email):
+                    errors.append("❌ Please use your official NIT Jalandhar email (@nitj.ac.in)")
+                
+                if not branch or len(branch.strip()) < 2:
+                    errors.append("❌ Please provide your branch")
+                
+                # Check for existing alias
+                if check_alias_exists(alias.strip()):
+                    errors.append("❌ This alias is already taken. Please choose another one.")
+                
+                # Check for existing email
+                email_hash_val = hash_email(email)
+                if check_email_exists(email_hash_val):
+                    errors.append("❌ This email is already registered. Use 'Login' below to get a new link.")
+                
+                if errors:
+                    for error in errors:
+                        st.error(error)
                 else:
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.markdown(f"""
-                        <div style="background: rgba(255,79,216,0.15); padding: 10px 14px; border-radius: 12px; margin: 8px 0;">
-                            <div style="font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px;">{chat_partner['alias']}</div>
-                            <div>{msg['text']}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-        else:
-            st.info("No messages yet. Start the conversation!")
+                    # Process answers
+                    q6_val = 0 if q6 == "Handling things alone" else 1
+                    q7_val = 0 if q7 == "Thinking quietly" else 1
+                    
+                    music_era_val = ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(music_era)
+                    music_genre_val = ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(music_genre)
+                    travel_val = 0 if travel == "Beaches" else 1
+                    movies_val = ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(movies)
+                    
+                    # Save user to database
+                    with st.spinner("📧 Saving your profile and sending login link..."):
+                        try:
+                            user_data = {
+                                "alias": alias.strip(),
+                                "email_hash": email_hash_val,
+                                "gender": gender,
+                                "year": year,
+                                "branch": branch.strip(),
+                                "bio": bio.strip() if bio else "",
+                                "answers": {
+                                    "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8],
+                                    "interest": [music_era_val, music_genre_val, travel_val, movies_val]
+                                },
+                                "created_at": firestore.SERVER_TIMESTAMP
+                            }
+                            
+                            db.collection("users").add(user_data)
+                            
+                            # Create magic link
+                            token = create_magic_link(email_hash_val)
+                            
+                            # Send email
+                            if send_magic_link(email, token):
+                                st.success("✅ Registration successful!")
+                                st.info(f"📧 Login link sent to {email}")
+                                st.balloons()
+                            else:
+                                st.warning("⚠️ Registration saved but email failed. Please use 'Login' below.")
+                        
+                        except Exception as e:
+                            st.error(f"❌ Registration failed: {str(e)}")
     
+    # ================= AFTER UNLOCK =================
+    else:
+        st.markdown("""
+        <div class="glass" style="text-align:center;">
+            <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">🎉 Matches Are Live!</div>
+            <div class="small-note">Login to view your compatible matches</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # ================= LOGIN SECTION (Always shown) =================
     st.markdown("---")
+    st.markdown("<div class='glass'><h3>🔐 Already Registered? Login</h3></div>", unsafe_allow_html=True)
     
-    # Send message
-    with st.form("message_form", clear_on_submit=True):
-        message_text = st.text_input("Type your message", key="msg_input", placeholder="Say hi! 👋")
-        send = st.form_submit_button("Send 💬", use_container_width=True)
-    
-    if send and message_text.strip():
-        db.collection("chats").document(chat_id).collection("messages").add({
-            "sender_id": current_user["_id"],
-            "text": message_text.strip(),
-            "timestamp": firestore.SERVER_TIMESTAMP
-        })
-        st.rerun()
+    with st.form("login_form"):
+        login_email = st.text_input("Your NIT Jalandhar Email", key="login_email", max_chars=100)
+        login_submit = st.form_submit_button("📧 Send Login Link", use_container_width=True)
+        
+        if login_submit:
+            if not login_email:
+                st.error("❌ Please enter your email")
+            elif not validate_nitj_email(login_email):
+                st.error("❌ Please use your official NIT Jalandhar email (@nitj.ac.in)")
+            else:
+                login_hash = hash_email(login_email)
+                
+                # Check if user exists
+                if not check_email_exists(login_hash):
+                    st.error("❌ Email not registered. Please register first.")
+                elif not can_send_magic_link(login_hash):
+                    st.warning(f"⏰ Please wait {MAGIC_LINK_COOLDOWN} seconds before requesting a new link.")
+                else:
+                    with st.spinner("📧 Sending login link..."):
+                        try:
+                            token = create_magic_link(login_hash)
+                            
+                            if send_magic_link(login_email, token):
+                                st.success("✅ Login link sent!")
+                                st.info(f"📧 Check your email: {login_email}")
+                            else:
+                                st.error("❌ Failed to send email. Please try again later.")
+                        
+                        except Exception as e:
+                            st.error(f"❌ Login failed: {str(e)}")
+
+# ================= FOOTER =================
+st.markdown("---")
+st.caption("Made with 💘 for NIT Jalandhar • Your privacy is protected")
