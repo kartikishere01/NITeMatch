@@ -387,7 +387,7 @@ db = firestore.client()
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # 🔴 UNLOCK DATE - Set to Feb 6, 2026, 8 PM IST
-UNLOCK_TIME = datetime(2026, 2, 3, 20, 0, tzinfo=IST)
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, tzinfo=IST)
 
 MATCH_THRESHOLD = 0.50
 SCALE = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
@@ -1384,4 +1384,3 @@ else:
                             """, unsafe_allow_html=True)
                         else:
                             st.error("❌ Failed to send email. Please try again.")
-
