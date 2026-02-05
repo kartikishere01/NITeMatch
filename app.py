@@ -387,10 +387,18 @@ db = firestore.client()
 IST = timezone(timedelta(hours=5, minutes=30))
 
 # 🔴 UNLOCK DATE - Set to Feb 6, 2026, 8 PM IST
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, tzinfo=IST)
+UNLOCK_TIME = datetime(2026, 2, 3, 20, 0, tzinfo=IST)
 
 MATCH_THRESHOLD = 0.50
 SCALE = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
+
+# Match limits based on gender to handle disproportion
+# Strategy: To balance gender disparity and ensure fair matching
+# - Females get more matches (10) because there are fewer female users
+# - Males get fewer matches (4) because there are more male users  
+# - This ensures most users get matches despite unequal gender ratios
+FEMALE_MATCH_LIMIT = 10  # Females get top 10 matches
+MALE_MATCH_LIMIT = 4      # Males get top 4 matches
 
 # ================= EMAIL CONFIG =================
 SMTP_SERVER = st.secrets.get("smtp", {}).get("server", "smtp.gmail.com")
@@ -412,7 +420,21 @@ def normalize(v):
     norm = np.linalg.norm(v)
     return v if norm == 0 else v / norm
 
+def pad_to_length(arr, target_length, fill_value=0):
+    """Pad or truncate array to target length"""
+    arr = list(arr)
+    if len(arr) < target_length:
+        arr.extend([fill_value] * (target_length - len(arr)))
+    elif len(arr) > target_length:
+        arr = arr[:target_length]
+    return arr
+
 def cosine(a, b):
+    # Ensure both arrays have the same length
+    max_len = max(len(a), len(b))
+    a = pad_to_length(a, max_len)
+    b = pad_to_length(b, max_len)
+    
     if sum(a) == 0 or sum(b) == 0:
         return 0.0
     return cosine_similarity([a], [b])[0][0]
@@ -540,8 +562,23 @@ def compute_matches(current_user, all_users):
     matches = []
     opposite_gender = "Female" if current_user["gender"] == "Male" else "Male"
     
-    current_psych = normalize(current_user["answers"]["psych"])
-    current_interest = normalize(current_user["answers"]["interest"])
+    # Validate current user has answers
+    if "answers" not in current_user or "psych" not in current_user["answers"] or "interest" not in current_user["answers"]:
+        return []
+    
+    # Expected lengths
+    PSYCH_LENGTH = 10
+    INTEREST_LENGTH = 5
+    
+    # Pad current user's answers to expected lengths
+    current_psych_raw = current_user["answers"]["psych"]
+    current_interest_raw = current_user["answers"]["interest"]
+    
+    current_psych_raw = pad_to_length(current_psych_raw, PSYCH_LENGTH, 3)  # Default to middle value
+    current_interest_raw = pad_to_length(current_interest_raw, INTEREST_LENGTH, 0)
+    
+    current_psych = normalize(current_psych_raw)
+    current_interest = normalize(current_interest_raw)
     
     for user in all_users:
         if user["_id"] == current_user["_id"]:
@@ -549,42 +586,92 @@ def compute_matches(current_user, all_users):
         if user["gender"] != opposite_gender:
             continue
         
-        user_psych = normalize(user["answers"]["psych"])
-        user_interest = normalize(user["answers"]["interest"])
+        # Validate user has answers
+        if "answers" not in user or "psych" not in user["answers"] or "interest" not in user["answers"]:
+            continue
         
-        psych_score = cosine(current_psych, user_psych)
-        interest_score = cosine(current_interest, user_interest)
+        # Pad user's answers to expected lengths
+        user_psych_raw = user["answers"]["psych"]
+        user_interest_raw = user["answers"]["interest"]
         
-        combined = 0.7 * psych_score + 0.3 * interest_score
+        user_psych_raw = pad_to_length(user_psych_raw, PSYCH_LENGTH, 3)
+        user_interest_raw = pad_to_length(user_interest_raw, INTEREST_LENGTH, 0)
         
-        if combined >= MATCH_THRESHOLD:
-            matches.append({
-                "user": user,
-                "score": combined,
-                "psych_score": psych_score,
-                "interest_score": interest_score
-            })
+        user_psych = normalize(user_psych_raw)
+        user_interest = normalize(user_interest_raw)
+        
+        try:
+            psych_score = cosine(current_psych, user_psych)
+            interest_score = cosine(current_interest, user_interest)
+            
+            combined = 0.7 * psych_score + 0.3 * interest_score
+            
+            if combined >= MATCH_THRESHOLD:
+                matches.append({
+                    "user": user,
+                    "score": combined,
+                    "psych_score": psych_score,
+                    "interest_score": interest_score
+                })
+        except Exception as e:
+            # Skip this user if there's an error computing similarity
+            # print(f"Error computing match for user {user.get('alias', 'unknown')}: {e}")
+            continue
     
-    return sorted(matches, key=lambda x: x["score"], reverse=True)
+    # Sort by score (highest first)
+    matches = sorted(matches, key=lambda x: x["score"], reverse=True)
+    
+    # Apply gender-based match limits
+    if current_user["gender"] == "Female":
+        # Females get top 10 matches
+        matches = matches[:FEMALE_MATCH_LIMIT]
+    else:
+        # Males get top 4 matches
+        matches = matches[:MALE_MATCH_LIMIT]
+    
+    return matches
 
 def show_compatibility_details(current_user, matched_user):
     """Display detailed compatibility breakdown"""
     
     st.markdown("### 🔍 Compatibility Breakdown")
     
-    current_psych = normalize(current_user["answers"]["psych"])
-    current_interest = normalize(current_user["answers"]["interest"])
-    matched_psych = normalize(matched_user["answers"]["psych"])
-    matched_interest = normalize(matched_user["answers"]["interest"])
+    # Expected lengths
+    PSYCH_LENGTH = 10
+    INTEREST_LENGTH = 5
     
-    psych_score = cosine(current_psych, matched_psych) * 100
-    interest_score = cosine(current_interest, matched_interest) * 100
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("🧠 Psychological", f"{psych_score:.0f}%")
-    with col2:
-        st.metric("🎵 Interests", f"{interest_score:.0f}%")
+    try:
+        # Validate and pad current user's answers
+        current_psych_raw = current_user.get("answers", {}).get("psych", [])
+        current_interest_raw = current_user.get("answers", {}).get("interest", [])
+        
+        current_psych_raw = pad_to_length(current_psych_raw, PSYCH_LENGTH, 3)
+        current_interest_raw = pad_to_length(current_interest_raw, INTEREST_LENGTH, 0)
+        
+        current_psych = normalize(current_psych_raw)
+        current_interest = normalize(current_interest_raw)
+        
+        # Validate and pad matched user's answers
+        matched_psych_raw = matched_user.get("answers", {}).get("psych", [])
+        matched_interest_raw = matched_user.get("answers", {}).get("interest", [])
+        
+        matched_psych_raw = pad_to_length(matched_psych_raw, PSYCH_LENGTH, 3)
+        matched_interest_raw = pad_to_length(matched_interest_raw, INTEREST_LENGTH, 0)
+        
+        matched_psych = normalize(matched_psych_raw)
+        matched_interest = normalize(matched_interest_raw)
+        
+        psych_score = cosine(current_psych, matched_psych) * 100
+        interest_score = cosine(current_interest, matched_interest) * 100
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("🧠 Psychological", f"{psych_score:.0f}%")
+        with col2:
+            st.metric("🎵 Interests", f"{interest_score:.0f}%")
+    except Exception as e:
+        st.warning("⚠️ Unable to display detailed compatibility breakdown")
+        # print(f"Error in show_compatibility_details: {e}")
 
 # ================= CHAT FUNCTIONS =================
 def get_chat_id(user1_id, user2_id):
@@ -888,6 +975,24 @@ if st.session_state.logged_in and st.session_state.current_user:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                # Show match limit info
+                if current_user["gender"] == "Female":
+                    st.markdown("""
+                    <div class="info-box">
+                        <div style="text-align:center;font-size:0.9rem;">
+                            ℹ️ Showing your top 10 most compatible matches
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                    <div class="info-box">
+                        <div style="text-align:center;font-size:0.9rem;">
+                            ℹ️ Showing your top 4 most compatible matches
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
                 
                 for idx, match in enumerate(matches, 1):
                     matched_user = match["user"]
@@ -1279,3 +1384,4 @@ else:
                             """, unsafe_allow_html=True)
                         else:
                             st.error("❌ Failed to send email. Please try again.")
+
