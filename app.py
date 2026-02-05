@@ -412,7 +412,8 @@ def show_compatibility_details(user1, user2):
         "Music era you connect with most",
         "Preferred music genre",
         "You would rather go to",
-        "Movies you enjoy the most"
+        "Movies you enjoy the most",
+        "Favorite hangout spot"
     ]
     
     user1_psych = user1["answers"]["psych"]
@@ -488,7 +489,8 @@ def show_compatibility_details(user1, user2):
         ["Before 2000", "2000–2009", "2010–2019", "2020–Present"],
         ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"],
         ["Beaches", "Mountains"],
-        ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"]
+        ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"],
+        ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"]
     ]
     
     for i, question in enumerate(interest_questions):
@@ -684,6 +686,8 @@ elif now < UNLOCK_TIME:
         travel = st.radio("You would rather go to", ["Beaches", "Mountains"], horizontal=True)
         movies = st.radio("Movies you enjoy the most",
             ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"], horizontal=True)
+        hangout = st.radio("Favorite hangout spot",
+            ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"], horizontal=False)
         
         submitted = st.form_submit_button("Submit")
         
@@ -697,6 +701,7 @@ elif now < UNLOCK_TIME:
             music_genre_val = ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(music_genre)
             travel_val = 0 if travel == "Beaches" else 1
             movies_val = ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(movies)
+            hangout_val = ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"].index(hangout)
             
             # Save to database
             email_hash_val = hash_email(email)
@@ -707,7 +712,7 @@ elif now < UNLOCK_TIME:
                 "gender": gender,
                 "answers": {
                     "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8],
-                    "interest": [music_era_val, music_genre_val, travel_val, movies_val]
+                    "interest": [music_era_val, music_genre_val, travel_val, movies_val, hangout_val]
                 },
                 "created_at": firestore.SERVER_TIMESTAMP
             }
