@@ -405,7 +405,9 @@ def show_compatibility_details(user1, user2):
         "Relationships should help people grow",
         "In difficult situations, I prefer",
         "I process emotional pain by",
-        "I express care more through actions than words"
+        "I express care more through actions than words",
+        "If extremely busy but someone important needs you",
+        "After a disagreement, you prefer"
     ]
     
     interest_questions = [
@@ -413,7 +415,7 @@ def show_compatibility_details(user1, user2):
         "Preferred music genre",
         "You would rather go to",
         "Movies you enjoy the most",
-        "Favorite hangout spot"
+        "Your go-to hangout spot"
     ]
     
     user1_psych = user1["answers"]["psych"]
@@ -443,7 +445,7 @@ def show_compatibility_details(user1, user2):
         user1_val = user1_psych[i]
         user2_val = user2_psych[i]
         
-        if i not in [5, 6]:
+        if i not in [5, 6, 8, 9]:  # Not binary questions
             diff = abs(user1_val - user2_val)
             if diff == 0:
                 icon = "✅"
@@ -458,7 +460,7 @@ def show_compatibility_details(user1, user2):
             user1_label = SCALE[user1_val - 1]
             user2_label = SCALE[user2_val - 1]
             
-        else:
+        else:  # Binary questions
             if user1_val == user2_val:
                 icon = "✅"
                 color = "#00ffe1"
@@ -468,8 +470,12 @@ def show_compatibility_details(user1, user2):
             
             if i == 5:
                 labels = ["Handling things alone", "Leaning on someone"]
-            else:
+            elif i == 6:
                 labels = ["Thinking quietly", "Talking it out"]
+            elif i == 8:
+                labels = ["Drop everything for them", "Ask to catch up later"]
+            else:  # i == 9
+                labels = ["Talk it out immediately", "Take time to cool off"]
             
             user1_label = labels[user1_val]
             user2_label = labels[user2_val]
@@ -609,6 +615,24 @@ if st.session_state.get("logged_in", False):
                     </div>
                     """, unsafe_allow_html=True)
                     
+                    # Show Instagram if shared
+                    if matched_user.get("share_instagram", False) and matched_user.get("instagram"):
+                        st.markdown(f"""
+                        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align:center;">
+                            📸 <strong>Instagram:</strong> <a href="https://instagram.com/{matched_user['instagram'].replace('@', '')}" 
+                            target="_blank" style="color: #00ffe1;">@{matched_user['instagram'].replace('@', '')}</a>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Show message for matches
+                    if matched_user.get("match_message"):
+                        st.markdown(f"""
+                        <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">💬 Message from {matched_user['alias']}:</div>
+                            <div style="font-style: italic; opacity: 0.9;">"{matched_user['match_message']}"</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
                     st.markdown("---")
                     show_compatibility_details(current_user, matched_user)
         
@@ -650,6 +674,7 @@ elif now < UNLOCK_TIME:
     """, unsafe_allow_html=True)
 
     with st.form("pre_unlock_form"):
+        # Basic Info
         alias = st.text_input("Choose an anonymous alias")
 
         st.markdown("""
@@ -659,9 +684,9 @@ elif now < UNLOCK_TIME:
         </div>
         """, unsafe_allow_html=True)
 
-        email = st.text_input("Official NIT Jalandhar Email (@nitj.ac.in)")
+        email = st.text_input("Official NIT Jalandhar Email ID (@nitj.ac.in)")
         
-        gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
+        gender = st.radio("I identify as", ["Male", "Female"], horizontal=True)
         
         st.markdown("---")
         st.markdown("### 🧠 Psychological Questions")
@@ -675,6 +700,10 @@ elif now < UNLOCK_TIME:
         q6 = st.radio("In difficult situations, I prefer", ["Handling things alone", "Leaning on someone"], horizontal=True)
         q7 = st.radio("I process emotional pain by", ["Thinking quietly", "Talking it out"], horizontal=True)
         q8 = scale_slider("I express care more through actions than words")
+        q9 = st.radio("If extremely busy but someone important needs you", 
+                      ["Drop everything for them", "Ask to catch up later"], horizontal=True)
+        q10 = st.radio("After a disagreement, you prefer", 
+                       ["Talk it out immediately", "Take time to cool off"], horizontal=True)
         
         st.markdown("---")
         st.markdown("### 🎵 Interests & Preferences")
@@ -686,47 +715,71 @@ elif now < UNLOCK_TIME:
         travel = st.radio("You would rather go to", ["Beaches", "Mountains"], horizontal=True)
         movies = st.radio("Movies you enjoy the most",
             ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"], horizontal=True)
-        hangout = st.radio("Favorite hangout spot",
-            ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"], horizontal=False)
+        hangout = st.radio("Your go-to hangout spot",
+            ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", 
+             "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"], horizontal=False)
+        
+        st.markdown("---")
+        st.markdown("### 📱 Optional Info")
+        
+        instagram = st.text_input("Instagram (optional)", placeholder="@username")
+        share_instagram = st.checkbox("Allow my Instagram to be shared with matches")
+        
+        match_message = st.text_area("Optional message for matches", 
+                                      placeholder="A fun fact or message your matches will see...",
+                                      max_chars=200, height=80)
+        
+        st.markdown("---")
+        
+        confirm_nitj = st.checkbox("I confirm I am from NIT Jalandhar")
         
         submitted = st.form_submit_button("Submit")
         
         if submitted:
-            # Process binary questions
-            q6_val = bin_map(q6, "Handling things alone", "Leaning on someone")
-            q7_val = bin_map(q7, "Thinking quietly", "Talking it out")
-            
-            # Map interest answers to indices
-            music_era_val = ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(music_era)
-            music_genre_val = ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(music_genre)
-            travel_val = 0 if travel == "Beaches" else 1
-            movies_val = ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(movies)
-            hangout_val = ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"].index(hangout)
-            
-            # Save to database
-            email_hash_val = hash_email(email)
-            
-            user_data = {
-                "alias": alias,
-                "email_hash": email_hash_val,
-                "gender": gender,
-                "answers": {
-                    "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8],
-                    "interest": [music_era_val, music_genre_val, travel_val, movies_val, hangout_val]
-                },
-                "created_at": firestore.SERVER_TIMESTAMP
-            }
-            
-            db.collection("users").add(user_data)
-            
-            # Create and send magic link
-            token = create_magic_link(email_hash_val, email)
-            
-            if send_magic_link(email, token):
-                st.success("✅ Registration successful! Check your email for login link.")
-                st.balloons()
+            if not confirm_nitj:
+                st.error("❌ Please confirm you are from NIT Jalandhar")
             else:
-                st.warning("⚠️ Registration saved but email failed. Please use login below.")
+                # Process binary questions
+                q6_val = bin_map(q6, "Handling things alone", "Leaning on someone")
+                q7_val = bin_map(q7, "Thinking quietly", "Talking it out")
+                q9_val = bin_map(q9, "Drop everything for them", "Ask to catch up later")
+                q10_val = bin_map(q10, "Talk it out immediately", "Take time to cool off")
+                
+                # Map interest answers to indices
+                music_era_val = ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(music_era)
+                music_genre_val = ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(music_genre)
+                travel_val = 0 if travel == "Beaches" else 1
+                movies_val = ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(movies)
+                hangout_val = ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", 
+                               "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"].index(hangout)
+                
+                # Save to database
+                email_hash_val = hash_email(email)
+                
+                user_data = {
+                    "alias": alias,
+                    "email_hash": email_hash_val,
+                    "gender": gender,
+                    "answers": {
+                        "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8, q9_val, q10_val],
+                        "interest": [music_era_val, music_genre_val, travel_val, movies_val, hangout_val]
+                    },
+                    "instagram": instagram.strip() if instagram else "",
+                    "share_instagram": share_instagram,
+                    "match_message": match_message.strip() if match_message else "",
+                    "created_at": firestore.SERVER_TIMESTAMP
+                }
+                
+                db.collection("users").add(user_data)
+                
+                # Create and send magic link
+                token = create_magic_link(email_hash_val, email)
+                
+                if send_magic_link(email, token):
+                    st.success("✅ Registration successful! Check your email for login link.")
+                    st.balloons()
+                else:
+                    st.warning("⚠️ Registration saved but email failed. Please use login below.")
 
 # ================= AFTER UNLOCK - LOGIN SECTION =================
 else:
