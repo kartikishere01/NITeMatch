@@ -25,21 +25,22 @@ def apply_styles(has_matches=False):
         # 🌸 PINK GRADIENT THEME when matches are found! 💕
         background = """
         background:
-            radial-gradient(circle at 20% 20%, rgba(255,20,147,0.45), transparent 35%),
-            radial-gradient(circle at 80% 10%, rgba(255,105,180,0.40), transparent 40%),
-            radial-gradient(circle at 50% 80%, rgba(255,0,127,0.35), transparent 45%),
-            radial-gradient(circle at 10% 90%, rgba(255,182,193,0.30), transparent 40%),
-            radial-gradient(circle at 90% 70%, rgba(255,20,147,0.25), transparent 50%),
-            linear-gradient(135deg, #1a0a14 0%, #2d0a1f 50%, #1a0a14 100%);
+            radial-gradient(circle at 15% 15%, rgba(236,72,153,0.35), transparent 40%),
+            radial-gradient(circle at 85% 20%, rgba(192,132,252,0.30), transparent 45%),
+            radial-gradient(circle at 50% 85%, rgba(251,113,133,0.32), transparent 50%),
+            radial-gradient(circle at 10% 75%, rgba(244,114,182,0.25), transparent 45%),
+            radial-gradient(circle at 90% 60%, rgba(217,70,239,0.28), transparent 40%),
+            linear-gradient(135deg, #0f0514 0%, #1a0a1e 50%, #0f0514 100%);
     """
     else:
-        # DEFAULT THEME
+        # DEFAULT THEME - More aesthetic purples and cyans
         background = """
         background:
-            radial-gradient(circle at 20% 20%, rgba(255,79,216,0.30), transparent 40%),
-            radial-gradient(circle at 80% 10%, rgba(0,255,225,0.30), transparent 40%),
-            radial-gradient(circle at 50% 80%, rgba(106,0,255,0.30), transparent 45%),
-            #05000a;
+            radial-gradient(circle at 25% 25%, rgba(167,139,250,0.25), transparent 45%),
+            radial-gradient(circle at 75% 15%, rgba(56,189,248,0.22), transparent 50%),
+            radial-gradient(circle at 50% 75%, rgba(139,92,246,0.28), transparent 45%),
+            radial-gradient(circle at 10% 60%, rgba(99,102,241,0.20), transparent 40%),
+            linear-gradient(135deg, #0a0118 0%, #0f0820 50%, #0a0118 100%);
     """
     
     st.markdown(f"""
@@ -600,12 +601,9 @@ if st.session_state.get("logged_in", False):
                 with st.expander(f"💘 Match #{idx}: {matched_user['alias']} • {score}% compatible", expanded=(idx == 1)):
                     st.markdown(f"""
                     <div class="glass">
-                        <div style="font-size:1.2rem;font-weight:600;margin-bottom:1rem;">
+                        <div style="font-size:1.5rem;font-weight:700;margin-bottom:1.5rem;text-align:center;">
                             {matched_user['alias']}
                         </div>
-                        <div style="margin-bottom:0.5rem;">🎓 <strong>Year:</strong> {matched_user.get('year', 'Not specified')}</div>
-                        <div style="margin-bottom:0.5rem;">📚 <strong>Branch:</strong> {matched_user.get('branch', 'Not specified')}</div>
-                        <div style="margin-bottom:1rem;">💬 <strong>Bio:</strong> {matched_user.get('bio', 'No bio provided')}</div>
                     </div>
                     """, unsafe_allow_html=True)
                     
@@ -662,9 +660,6 @@ elif now < UNLOCK_TIME:
         email = st.text_input("Official NIT Jalandhar Email (@nitj.ac.in)")
         
         gender = st.radio("Gender", ["Male", "Female"], horizontal=True)
-        year = st.selectbox("Year", ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year (B.Tech + M.Tech)"])
-        branch = st.text_input("Branch (e.g., CSE, ECE, ME)")
-        bio = st.text_area("Short Bio (optional)", max_chars=250, height=100)
         
         st.markdown("---")
         st.markdown("### 🧠 Psychological Questions")
@@ -710,9 +705,6 @@ elif now < UNLOCK_TIME:
                 "alias": alias,
                 "email_hash": email_hash_val,
                 "gender": gender,
-                "year": year,
-                "branch": branch,
-                "bio": bio,
                 "answers": {
                     "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8],
                     "interest": [music_era_val, music_genre_val, travel_val, movies_val]
