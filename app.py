@@ -17,9 +17,9 @@ st.set_page_config(
     layout="centered"
 )
 
-# ================= GLOBAL STYLES WITH DYNAMIC BACKGROUND =================
-def apply_styles(has_matches=False):
-    """Apply dynamic styles based on match status"""
+# ================= ENHANCED GLOBAL STYLES =================
+def apply_styles(has_matches=False, is_countdown=False):
+    """Apply dynamic styles based on match status and unlock state"""
     
     if has_matches:
         # 🌸 PINK GRADIENT THEME when matches are found! 💕
@@ -31,6 +31,17 @@ def apply_styles(has_matches=False):
             radial-gradient(circle at 10% 75%, rgba(244,114,182,0.25), transparent 45%),
             radial-gradient(circle at 90% 60%, rgba(217,70,239,0.28), transparent 40%),
             linear-gradient(135deg, #0f0514 0%, #1a0a1e 50%, #0f0514 100%);
+    """
+    elif is_countdown:
+        # COUNTDOWN THEME - Mysterious and anticipatory
+        background = """
+        background:
+            radial-gradient(circle at 20% 30%, rgba(139,92,246,0.3), transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(236,72,153,0.25), transparent 55%),
+            radial-gradient(circle at 50% 80%, rgba(59,130,246,0.28), transparent 50%),
+            radial-gradient(circle at 15% 70%, rgba(168,85,247,0.22), transparent 45%),
+            radial-gradient(circle at 85% 85%, rgba(244,114,182,0.20), transparent 40%),
+            linear-gradient(135deg, #0a0118 0%, #1a0520 25%, #0f0628 50%, #1a0520 75%, #0a0118 100%);
     """
     else:
         # DEFAULT THEME - More aesthetic purples and cyans
@@ -52,23 +63,93 @@ def apply_styles(has_matches=False):
 }}
 .block-container {{ max-width: 820px; padding-top: 2rem; }}
 .title {{
-    font-size: 3rem;
+    font-size: 3.5rem;
     font-weight: 900;
     text-align: center;
-    background: linear-gradient(90deg, #ff4fd8, #00ffe1);
+    background: linear-gradient(90deg, #ff4fd8, #00ffe1, #ff4fd8);
+    background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    animation: gradient-shift 4s ease infinite;
+    margin-bottom: 0.5rem;
 }}
+
+@keyframes gradient-shift {{
+    0%, 100% {{ background-position: 0% center; }}
+    50% {{ background-position: 100% center; }}
+}}
+
+.subtitle {{
+    text-align: center;
+    font-size: 1.1rem;
+    opacity: 0.8;
+    margin-bottom: 2rem;
+    font-style: italic;
+}}
+
 .glass {{
     background: rgba(12,12,22,0.88);
     backdrop-filter: blur(18px);
     border-radius: 24px;
     padding: 28px;
     margin-bottom: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
 }}
-.small-note {{ font-size: 0.8rem; opacity: 0.75; }}
 
-/* Better button styling */
+.countdown-box {{
+    background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(236,72,153,0.2));
+    backdrop-filter: blur(20px);
+    border-radius: 28px;
+    padding: 40px;
+    margin: 30px 0;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 12px 40px rgba(139,92,246,0.3);
+    text-align: center;
+}}
+
+.countdown-title {{
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(90deg, #ec4899, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}}
+
+.countdown-timer {{
+    font-size: 3rem;
+    font-weight: 900;
+    margin: 20px 0;
+    text-shadow: 0 0 20px rgba(139,92,246,0.5);
+    animation: pulse-glow 2s ease-in-out infinite;
+}}
+
+@keyframes pulse-glow {{
+    0%, 100% {{ 
+        text-shadow: 0 0 20px rgba(139,92,246,0.5);
+        transform: scale(1);
+    }}
+    50% {{ 
+        text-shadow: 0 0 40px rgba(236,72,153,0.8), 0 0 60px rgba(139,92,246,0.6);
+        transform: scale(1.05);
+    }}
+}}
+
+.unlock-date {{
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #00ffe1;
+    margin-top: 1rem;
+}}
+
+.small-note {{ 
+    font-size: 0.85rem; 
+    opacity: 0.75;
+    line-height: 1.6;
+}}
+
+/* Enhanced button styling */
 .stButton button {{
     background: linear-gradient(135deg, rgba(255,79,216,0.3), rgba(0,255,225,0.3));
     border: 1px solid rgba(255,255,255,0.2);
@@ -76,11 +157,13 @@ def apply_styles(has_matches=False):
     color: white;
     font-weight: 600;
     transition: all 0.3s ease;
+    padding: 0.6rem 1.5rem;
 }}
 .stButton button:hover {{
     background: linear-gradient(135deg, rgba(255,79,216,0.5), rgba(0,255,225,0.5));
     border: 1px solid rgba(255,255,255,0.4);
     transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255,79,216,0.3);
 }}
 
 /* Clean dividers */
@@ -110,11 +193,97 @@ hr {{
     animation: heartbeat 1.5s ease-in-out infinite;
     display: inline-block;
 }}
+
+/* Floating hearts animation */
+@keyframes float-heart {{
+    0% {{
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }}
+    100% {{
+        transform: translateY(-100px) rotate(15deg);
+        opacity: 0;
+    }}
+}}
+
+.floating-heart {{
+    animation: float-heart 3s ease-in-out infinite;
+    position: absolute;
+}}
+
+/* Enhanced form styling */
+.stTextInput input, .stTextArea textarea {{
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 10px !important;
+    color: white !important;
+    transition: all 0.3s ease !important;
+}}
+
+.stTextInput input:focus, .stTextArea textarea:focus {{
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(0,255,225,0.4) !important;
+    box-shadow: 0 0 15px rgba(0,255,225,0.2) !important;
+}}
+
+/* Radio button enhancement */
+.stRadio > label {{
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+}}
+
+/* Info box styling */
+.info-box {{
+    background: rgba(59,130,246,0.15);
+    border-left: 4px solid #3b82f6;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}}
+
+.warning-box {{
+    background: rgba(251,191,36,0.15);
+    border-left: 4px solid #fbbf24;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}}
+
+.success-box {{
+    background: rgba(34,197,94,0.15);
+    border-left: 4px solid #22c55e;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}}
+
+/* Section headers */
+.section-header {{
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 1.5rem 0 1rem 0;
+    background: linear-gradient(90deg, #ff4fd8, #00ffe1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}}
+
+/* Locked state styling */
+.locked-message {{
+    background: rgba(255,79,216,0.1);
+    border: 2px solid rgba(255,79,216,0.3);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    margin: 2rem 0;
+}}
+
+.lock-icon {{
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: pulse 2s ease-in-out infinite;
+}}
 </style>
 """, unsafe_allow_html=True)
-
-# Apply default styles initially
-apply_styles()
 
 # ================= FIREBASE INIT =================
 if not firebase_admin._apps:
@@ -170,6 +339,45 @@ def generate_magic_token():
     """Generate a secure random token for magic links"""
     return secrets.token_urlsafe(32)
 
+def create_magic_link(email_hash, email=None):
+    """Create a magic link token and store in database"""
+    token = generate_magic_token()
+    expiry = datetime.now(IST) + timedelta(hours=24)
+    
+    token_data = {
+        "email_hash": email_hash,
+        "token": token,
+        "expires_at": expiry,
+        "created_at": firestore.SERVER_TIMESTAMP
+    }
+    
+    if email:
+        token_data["email"] = email
+    
+    db.collection("magic_tokens").document(token).set(token_data)
+    return token
+
+def verify_magic_token(token):
+    """Verify magic link token and return email_hash if valid"""
+    try:
+        doc = db.collection("magic_tokens").document(token).get()
+        if not doc.exists:
+            return None
+        
+        data = doc.to_dict()
+        if data["expires_at"].replace(tzinfo=IST) < datetime.now(IST):
+            return None
+        
+        return data["email_hash"]
+    except:
+        return None
+
+def update_user_email(email_hash, email):
+    """Update user's email for future logins"""
+    users = db.collection("users").where("email_hash", "==", email_hash).stream()
+    for user in users:
+        db.collection("users").document(user.id).update({"email": email})
+
 def send_magic_link(email, token):
     """Send magic link to user's email"""
     
@@ -187,59 +395,41 @@ def send_magic_link(email, token):
         
         html = f"""
         <html>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #f7f7f7;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f7f7f7; padding: 40px 20px;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background-color: #0a0118;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #0a0118 0%, #1a0520 50%, #0a0118 100%); padding: 40px 20px;">
                 <tr>
                     <td align="center">
-                        <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background: rgba(20,20,40,0.95); border-radius: 24px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
                             <tr>
-                                <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; text-align: center;">
-                                    <h1 style="color: white; margin: 0; font-size: 32px;">💘 NITeMatch</h1>
-                                    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Your Login Link is Ready</p>
-                                </td>
-                            </tr>
-                            
-                            <tr>
-                                <td style="padding: 40px;">
-                                    <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                                        Hi there! 👋
-                                    </p>
-                                    <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                                        Click the button below to securely access your NITeMatch profile and view your matches:
-                                    </p>
+                                <td style="padding: 40px; text-align: center;">
+                                    <h1 style="margin: 0 0 10px 0; font-size: 2.5rem; background: linear-gradient(90deg, #ff4fd8, #00ffe1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                                        💘 NITeMatch
+                                    </h1>
+                                    <p style="margin: 0 0 30px 0; color: #a0a0a0; font-size: 1rem;">Your matches are waiting!</p>
                                     
-                                    <table width="100%" cellpadding="0" cellspacing="0">
-                                        <tr>
-                                            <td align="center" style="padding: 20px 0;">
-                                                <a href="{magic_link}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 48px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                                                    🔐 Login to NITeMatch
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </table>
+                                    <div style="background: rgba(139,92,246,0.2); border-radius: 16px; padding: 30px; margin: 20px 0;">
+                                        <p style="color: white; font-size: 1.1rem; margin: 0 0 20px 0;">
+                                            Click the button below to access your account:
+                                        </p>
+                                        <a href="{magic_link}" style="display: inline-block; background: linear-gradient(135deg, #ff4fd8, #00ffe1); color: white; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 1.1rem; margin: 10px 0;">
+                                            🔓 Login to NITeMatch
+                                        </a>
+                                    </div>
                                     
-                                    <p style="color: #999; font-size: 14px; text-align: center; margin: 20px 0 0 0;">
-                                        Or copy this link:<br>
-                                        <a href="{magic_link}" style="color: #667eea; word-break: break-all; font-size: 12px;">{magic_link}</a>
-                                    </p>
-                                </td>
-                            </tr>
-                            
-                            <tr>
-                                <td style="background: #f9f9f9; padding: 30px; border-top: 1px solid #eee;">
-                                    <p style="color: #999; font-size: 14px; text-align: center; margin: 0 0 10px 0;">
-                                        ⏰ This link will expire in <strong>15 minutes</strong> for security.
-                                    </p>
-                                    <p style="color: #999; font-size: 12px; text-align: center; margin: 0;">
-                                        If you didn't request this login link, please ignore this email.
+                                    <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin: 20px 0;">
+                                        <p style="color: #a0a0a0; font-size: 0.9rem; margin: 0;">
+                                            🔒 This link expires in 24 hours<br>
+                                            For security, don't share this link with anyone
+                                        </p>
+                                    </div>
+                                    
+                                    <p style="color: #707070; font-size: 0.85rem; margin: 30px 0 0 0; line-height: 1.6;">
+                                        If you didn't request this login, you can safely ignore this email.<br>
+                                        This is an automated message from NITeMatch.
                                     </p>
                                 </td>
                             </tr>
                         </table>
-                        
-                        <p style="color: #999; font-size: 12px; text-align: center; margin: 20px 0 0 0;">
-                            © 2026 NITeMatch • NIT Jalandhar
-                        </p>
                     </td>
                 </tr>
             </table>
@@ -247,450 +437,268 @@ def send_magic_link(email, token):
         </html>
         """
         
-        text = f"""
-NITeMatch - Your Login Link
-
-Click the link below to access your matches:
-{magic_link}
-
-This link will expire in 15 minutes for security.
-
-If you didn't request this, please ignore this email.
-
----
-© 2026 NITeMatch • NIT Jalandhar
-        """
+        msg.attach(MIMEText(html, 'html'))
         
-        part1 = MIMEText(text, 'plain')
-        part2 = MIMEText(html, 'html')
-        
-        msg.attach(part1)
-        msg.attach(part2)
-        
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
         
         return True
         
-    except smtplib.SMTPAuthenticationError:
-        st.error("❌ Email authentication failed. Check your App Password in secrets.")
-        return False
-    except smtplib.SMTPException as e:
-        st.error(f"❌ SMTP Error: {str(e)}")
-        return False
     except Exception as e:
-        st.error(f"❌ Failed to send email: {str(e)}")
+        st.error(f"Email error: {str(e)}")
         return False
 
-def create_magic_link(email_hash, plain_email=None):
-    """Create a magic link token and store it in database"""
-    token = generate_magic_token()
-    expiry = datetime.now(IST) + timedelta(minutes=15)
-    
-    token_data = {
-        "token": token,
-        "email_hash": email_hash,
-        "created_at": firestore.SERVER_TIMESTAMP,
-        "expires_at": expiry,
-        "used": False
-    }
-    
-    if plain_email:
-        token_data["email"] = plain_email
-    
-    db.collection("magic_tokens").add(token_data)
-    
-    return token
-
-def verify_magic_token(token):
-    """Verify magic token and return user if valid"""
-    tokens = list(
-        db.collection("magic_tokens")
-        .where("token", "==", token)
-        .where("used", "==", False)
-        .limit(1)
-        .stream()
-    )
-    
-    if not tokens:
-        return None
-    
-    token_doc = tokens[0]
-    token_data = token_doc.to_dict()
-    
-    expires_at = token_data["expires_at"]
-    
-    if hasattr(expires_at, 'timestamp'):
-        expires_at = datetime.fromtimestamp(expires_at.timestamp(), tz=IST)
-    elif expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=IST)
-    
-    current_time = datetime.now(IST)
-    
-    if expires_at < current_time:
-        return None
-    
-    token_doc.reference.update({"used": True})
-    
-    users = list(
-        db.collection("users")
-        .where("email_hash", "==", token_data["email_hash"])
-        .limit(1)
-        .stream()
-    )
-    
-    if users:
-        return users[0].to_dict() | {"_id": users[0].id}
-    
-    return None
-
-def update_user_email(email_hash, plain_email):
-    """Update existing user record with plain email for future magic links"""
-    users = list(
-        db.collection("users")
-        .where("email_hash", "==", email_hash)
-        .limit(1)
-        .stream()
-    )
-    
-    if users:
-        users[0].reference.update({"email": plain_email})
-        return True
-    return False
-
-def compute_compatibility(user1, user2):
-    """Compute psychological and interest compatibility"""
-    psych1 = normalize(user1["answers"]["psych"])
-    psych2 = normalize(user2["answers"]["psych"])
-    
-    interest1 = normalize(user1["answers"]["interest"])
-    interest2 = normalize(user2["answers"]["interest"])
-    
-    psych_score = cosine(psych1, psych2)
-    interest_score = cosine(interest1, interest2)
-    
-    total = 0.7 * psych_score + 0.3 * interest_score
-    return round(total * 100, 1)
-
-def get_matches(current_user, all_users):
-    """Get compatible matches for current user"""
+def compute_matches(current_user, all_users):
+    """Compute compatibility scores and return matches above threshold"""
+    matches = []
     opposite_gender = "Female" if current_user["gender"] == "Male" else "Male"
     
-    matches = []
+    current_psych = normalize(current_user["answers"]["psych"])
+    current_interest = normalize(current_user["answers"]["interest"])
+    
     for user in all_users:
         if user["_id"] == current_user["_id"]:
             continue
         if user["gender"] != opposite_gender:
             continue
         
-        score = compute_compatibility(current_user, user)
-        if score >= MATCH_THRESHOLD * 100:
+        user_psych = normalize(user["answers"]["psych"])
+        user_interest = normalize(user["answers"]["interest"])
+        
+        psych_score = cosine(current_psych, user_psych)
+        interest_score = cosine(current_interest, user_interest)
+        
+        combined = 0.7 * psych_score + 0.3 * interest_score
+        
+        if combined >= MATCH_THRESHOLD:
             matches.append({
                 "user": user,
-                "score": score
+                "score": combined,
+                "psych_score": psych_score,
+                "interest_score": interest_score
             })
     
     return sorted(matches, key=lambda x: x["score"], reverse=True)
 
-def show_compatibility_details(user1, user2):
-    """Display detailed compatibility breakdown between two users"""
+def show_compatibility_details(current_user, matched_user):
+    """Display detailed compatibility breakdown"""
     
-    psych_questions = [
-        "When overwhelmed, I prefer emotional closeness",
-        "I feel emotionally safe opening up",
-        "During conflict, I try to understand before reacting",
-        "Emotional loyalty matters more than attention",
-        "Relationships should help people grow",
-        "In difficult situations, I prefer",
-        "I process emotional pain by",
-        "I express care more through actions than words",
-        "If extremely busy but someone important needs you",
-        "After a disagreement, you prefer"
-    ]
+    st.markdown("### 🔍 Compatibility Breakdown")
     
-    interest_questions = [
-        "Music era you connect with most",
-        "Preferred music genre",
-        "You would rather go to",
-        "Movies you enjoy the most",
-        "Your go-to hangout spot"
-    ]
+    current_psych = normalize(current_user["answers"]["psych"])
+    current_interest = normalize(current_user["answers"]["interest"])
+    matched_psych = normalize(matched_user["answers"]["psych"])
+    matched_interest = normalize(matched_user["answers"]["interest"])
     
-    user1_psych = user1["answers"]["psych"]
-    user2_psych = user2["answers"]["psych"]
-    user1_interest = user1["answers"]["interest"]
-    user2_interest = user2["answers"]["interest"]
-    
-    psych1 = normalize(user1_psych)
-    psych2 = normalize(user2_psych)
-    interest1 = normalize(user1_interest)
-    interest2 = normalize(user2_interest)
-    
-    psych_score = round(cosine(psych1, psych2) * 100, 1)
-    interest_score = round(cosine(interest1, interest2) * 100, 1)
+    psych_score = cosine(current_psych, matched_psych) * 100
+    interest_score = cosine(current_interest, matched_interest) * 100
     
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("🧠 Psychological Match", f"{psych_score}%")
+        st.metric("🧠 Psychological", f"{psych_score:.0f}%")
     with col2:
-        st.metric("🎵 Interest Match", f"{interest_score}%")
-    
-    st.markdown("---")
-    
-    st.markdown("### 🧠 Psychological Compatibility")
-    
-    for i, question in enumerate(psych_questions):
-        user1_val = user1_psych[i]
-        user2_val = user2_psych[i]
-        
-        if i not in [5, 6, 8, 9]:  # Not binary questions
-            diff = abs(user1_val - user2_val)
-            if diff == 0:
-                icon = "✅"
-                color = "#00ffe1"
-            elif diff <= 1:
-                icon = "🟡"
-                color = "#ffa500"
-            else:
-                icon = "⚠️"
-                color = "#ff4fd8"
-            
-            user1_label = SCALE[user1_val - 1]
-            user2_label = SCALE[user2_val - 1]
-            
-        else:  # Binary questions
-            if user1_val == user2_val:
-                icon = "✅"
-                color = "#00ffe1"
-            else:
-                icon = "⚠️"
-                color = "#ff4fd8"
-            
-            if i == 5:
-                labels = ["Handling things alone", "Leaning on someone"]
-            elif i == 6:
-                labels = ["Thinking quietly", "Talking it out"]
-            elif i == 8:
-                labels = ["Drop everything for them", "Ask to catch up later"]
-            else:  # i == 9
-                labels = ["Talk it out immediately", "Take time to cool off"]
-            
-            user1_label = labels[user1_val]
-            user2_label = labels[user2_val]
-        
-        st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-            <div style="color: {color}; font-weight: 600; margin-bottom: 6px;">{icon} {question}</div>
-            <div style="font-size: 0.9rem; opacity: 0.8;">You: {user1_label} | Them: {user2_label}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    st.markdown("### 🎵 Interests & Lifestyle")
-    
-    interest_options = [
-        ["Before 2000", "2000–2009", "2010–2019", "2020–Present"],
-        ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"],
-        ["Beaches", "Mountains"],
-        ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"],
-        ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"]
-    ]
-    
-    for i, question in enumerate(interest_questions):
-        user1_val = user1_interest[i]
-        user2_val = user2_interest[i]
-        
-        if user1_val == user2_val:
-            icon = "✅"
-            color = "#00ffe1"
-        else:
-            diff = abs(user1_val - user2_val)
-            if diff <= 1:
-                icon = "🟡"
-                color = "#ffa500"
-            else:
-                icon = "⚠️"
-                color = "#ff4fd8"
-        
-        user1_label = interest_options[i][user1_val]
-        user2_label = interest_options[i][user2_val]
-        
-        st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-            <div style="color: {color}; font-weight: 600; margin-bottom: 6px;">{icon} {question}</div>
-            <div style="font-size: 0.9rem; opacity: 0.8;">You: {user1_label} | Them: {user2_label}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.caption("✅ = Similar  |  🟡 = Somewhat different  |  ⚠️ = Different")
+        st.metric("🎵 Interests", f"{interest_score:.0f}%")
 
-# ================= HEADER =================
-st.markdown("<div class='title'>NITeMatch 💘</div>", unsafe_allow_html=True)
-st.caption("Anonymous psychological compatibility • NIT Jalandhar")
+# ================= MAIN APP =================
 
-# ================= GUIDELINES =================
-with st.expander("📜 Guidelines & Safety"):
-    st.markdown("""
-- Respectful connections only  
-- No harassment or misuse  
-- Do not overshare personal info early  
-- Email is encrypted and never visible  
-- Matches are psychology-based  
-- Login links expire in 15 minutes
-""")
+# Header
+st.markdown('<div class="title">💘 NITeMatch</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Find your perfect match at NIT Jalandhar</div>', unsafe_allow_html=True)
 
-# ================= CHECK FOR MAGIC LINK TOKEN =================
-query_params = st.query_params
-if "token" in query_params:
-    token = query_params["token"]
-    user = verify_magic_token(token)
-    
-    if user:
-        st.session_state.logged_in = True
-        st.session_state.current_user = user
-        st.query_params.clear()
-        st.success("✅ Successfully logged in!")
-        st.rerun()
-    else:
-        st.error("🚫 Invalid or expired login link. Please request a new one.")
-        st.query_params.clear()
-
-# ================= MAIN APP LOGIC =================
+# Get current time
 now = datetime.now(IST)
 
-# Check if user is logged in
-if st.session_state.get("logged_in", False):
+# Check for magic link token in URL
+params = st.query_params
+token = params.get("token", None)
+
+# Initialize session state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
+
+# Verify magic link token if present
+if token and not st.session_state.logged_in:
+    email_hash = verify_magic_token(token)
+    if email_hash:
+        users = fetch_users()
+        user = next((u for u in users if u.get("email_hash") == email_hash), None)
+        if user:
+            st.session_state.logged_in = True
+            st.session_state.current_user = user
+            st.query_params.clear()
+            st.rerun()
+        else:
+            st.error("❌ User not found")
+    else:
+        st.error("❌ Invalid or expired login link")
+
+# ================= LOGGED IN STATE =================
+if st.session_state.logged_in and st.session_state.current_user:
     current_user = st.session_state.current_user
     
     if now >= UNLOCK_TIME:
-        # 🎉 MATCHES ARE UNLOCKED!
+        # Apply matched theme if matches exist
         all_users = fetch_users()
-        matches = get_matches(current_user, all_users)
-        
-        # 🌸 APPLY PINK GRADIENT IF MATCHES EXIST! 💕
-        if matches:
-            apply_styles(has_matches=True)
+        matches = compute_matches(current_user, all_users)
+        apply_styles(has_matches=len(matches) > 0)
         
         st.markdown(f"""
-        <div class="glass match-glow">
-            <h2 style="text-align:center;">
-                <span class="heart-beat">💕</span> Your Matches, {current_user['alias']}! <span class="heart-beat">💕</span>
-            </h2>
+        <div class="glass">
+            <div style="text-align:center;">
+                <h2 style="margin-bottom:0.5rem;">Welcome back, {current_user['alias']}! 👋</h2>
+                <p style="opacity:0.8;">Here are your compatibility results</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
-        if not matches:
-            st.markdown("""
-            <div class="glass" style="text-align:center;">
-                <div style="font-size:3rem;">😔</div>
-                <div style="font-size:1.3rem;margin-top:1rem;">No matches yet</div>
-                <div class="small-note" style="margin-top:0.5rem;">
-                Check back later as more people join!
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
+        if matches:
             st.markdown(f"""
-            <div style="text-align:center;margin-bottom:2rem;">
-                <div style="font-size:1.5rem;font-weight:700;background:linear-gradient(90deg,#ff1493,#ff69b4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                    Found {len(matches)} compatible match{"es" if len(matches) != 1 else ""}!
+            <div class="success-box">
+                <div style="font-size:1.3rem;font-weight:700;text-align:center;">
+                    <span class="heart-beat">💕</span> You have {len(matches)} compatible match{"es" if len(matches) > 1 else ""}! <span class="heart-beat">💕</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
             for idx, match in enumerate(matches, 1):
                 matched_user = match["user"]
-                score = match["score"]
+                score = match["score"] * 100
                 
-                with st.expander(f"💘 Match #{idx}: {matched_user['alias']} • {score}% compatible", expanded=(idx == 1)):
-                    st.markdown(f"""
-                    <div class="glass">
-                        <div style="font-size:1.5rem;font-weight:700;margin-bottom:1.5rem;text-align:center;">
+                st.markdown(f"""
+                <div class="glass match-glow">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                        <div style="font-size:1.4rem;font-weight:700;">
+                            Match #{idx}
+                        </div>
+                        <div style="font-size:1.8rem;font-weight:900;background:linear-gradient(90deg,#ff4fd8,#00ffe1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                            {score:.0f}%
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:16px;">
+                        <div style="font-size:1.5rem;font-weight:700;text-align:center;color:#00ffe1;">
                             {matched_user['alias']}
                         </div>
                     </div>
+                """, unsafe_allow_html=True)
+                
+                # Show Instagram if shared
+                if matched_user.get("share_instagram", False) and matched_user.get("instagram"):
+                    instagram_handle = matched_user['instagram'].replace('@', '')
+                    st.markdown(f"""
+                    <div style="background: rgba(255,255,255,0.05); padding: 14px; border-radius: 10px; margin-bottom: 12px; text-align:center;">
+                        <span style="font-size:1.2rem;">📸</span> <strong>Instagram:</strong> 
+                        <a href="https://instagram.com/{instagram_handle}" 
+                        target="_blank" style="color: #00ffe1; font-weight:600; text-decoration:none;">
+                        @{instagram_handle}
+                        </a>
+                    </div>
                     """, unsafe_allow_html=True)
-                    
-                    # Show Instagram if shared
-                    if matched_user.get("share_instagram", False) and matched_user.get("instagram"):
-                        st.markdown(f"""
-                        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 12px; text-align:center;">
-                            📸 <strong>Instagram:</strong> <a href="https://instagram.com/{matched_user['instagram'].replace('@', '')}" 
-                            target="_blank" style="color: #00ffe1;">@{matched_user['instagram'].replace('@', '')}</a>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    # Show message for matches
-                    if matched_user.get("match_message"):
-                        st.markdown(f"""
-                        <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">💬 Message from {matched_user['alias']}:</div>
-                            <div style="font-style: italic; opacity: 0.9;">"{matched_user['match_message']}"</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    st.markdown("---")
-                    show_compatibility_details(current_user, matched_user)
+                
+                # Show message for matches
+                if matched_user.get("match_message"):
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, rgba(255,79,216,0.15), rgba(0,255,225,0.15)); padding: 18px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #ff4fd8;">
+                        <div style="font-weight: 600; margin-bottom: 8px; color: #ff4fd8;">💬 Message from {matched_user['alias']}:</div>
+                        <div style="font-style: italic; opacity: 0.95; line-height: 1.5;">"{matched_user['match_message']}"</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+                show_compatibility_details(current_user, matched_user)
+                st.markdown("---")
+        else:
+            st.markdown("""
+            <div class="info-box">
+                <div style="text-align:center;">
+                    <div style="font-size:2rem;margin-bottom:1rem;">🔍</div>
+                    <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No matches found yet</div>
+                    <div style="opacity:0.8;">Don't worry! More people are joining. Check back later!</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        if st.button("🚪 Logout"):
+        if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.current_user = None
             st.rerun()
     
     else:
+        # Logged in but before unlock time
+        apply_styles(is_countdown=True)
         remaining = UNLOCK_TIME - now
+        
         st.markdown(f"""
-        <div class="glass" style="text-align:center;">
-            <div style="font-size:1.2rem;margin-bottom:1rem;">Welcome back, {current_user['alias']}!</div>
-            <div>⏳ Matches reveal in</div>
-            <div style="font-size:1.8rem;font-weight:700;">
+        <div class="countdown-box">
+            <div class="countdown-title">Welcome back, {current_user['alias']}! 👋</div>
+            <div style="font-size:1.2rem;margin-bottom:1rem;opacity:0.9;">Your matches will be revealed in:</div>
+            <div class="countdown-timer">
                 {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
             </div>
-            <div class="small-note">6th February • 8:00 PM IST</div>
+            <div class="unlock-date">📅 6th February 2026 • 8:00 PM IST</div>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("🚪 Logout"):
+        st.markdown("""
+        <div class="info-box">
+            <div style="text-align:center;">
+                <div style="font-size:1.1rem;margin-bottom:0.5rem;">✅ Your profile is saved!</div>
+                <div style="opacity:0.9;">Come back after the unlock time to see your matches</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.current_user = None
             st.rerun()
 
 # ================= NOT LOGGED IN - BEFORE UNLOCK =================
 elif now < UNLOCK_TIME:
+    apply_styles(is_countdown=True)
     remaining = UNLOCK_TIME - now
 
     st.markdown(f"""
-    <div class="glass" style="text-align:center;">
-        <div>⏳ Matches reveal in</div>
-        <div style="font-size:1.8rem;font-weight:700;">
+    <div class="countdown-box">
+        <div class="countdown-title">⏳ Matches Unlock In:</div>
+        <div class="countdown-timer">
             {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
         </div>
-        <div class="small-note">6th February • 8:00 PM IST</div>
+        <div class="unlock-date">📅 6th February 2026 • 8:00 PM IST</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="glass">
+        <div style="text-align:center;margin-bottom:1.5rem;">
+            <div style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;">Join NITeMatch Today!</div>
+            <div style="opacity:0.85;">Fill out the form below to find your perfect match</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
     with st.form("pre_unlock_form"):
-        # Basic Info
-        alias = st.text_input("Choose an anonymous alias")
+        st.markdown('<div class="section-header">📝 Basic Information</div>', unsafe_allow_html=True)
+        
+        alias = st.text_input("Choose an anonymous alias", placeholder="Your creative alias...")
 
         st.markdown("""
-        <div class="small-note">
-        <b>Important:</b> Email is collected only to ensure NIT Jalandhar exclusivity.  
-        It is encrypted and never shown to anyone. You'll receive a login link via email.
+        <div class="warning-box">
+            <strong>🔒 Privacy Notice:</strong> Your email is encrypted and used only for NIT Jalandhar verification. 
+            You'll receive a login link via email after the unlock time.
         </div>
         """, unsafe_allow_html=True)
 
-        email = st.text_input("Official NIT Jalandhar Email ID (@nitj.ac.in)")
+        email = st.text_input("Official NIT Jalandhar Email ID", placeholder="yourname@nitj.ac.in")
         
         gender = st.radio("I identify as", ["Male", "Female"], horizontal=True)
         
         st.markdown("---")
-        st.markdown("### 🧠 Psychological Questions")
-        st.caption("Answer honestly for better matches")
+        st.markdown('<div class="section-header">🧠 Psychological Questions</div>', unsafe_allow_html=True)
+        st.caption("Answer honestly for better matches ✨")
         
         q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
         q2 = scale_slider("I feel emotionally safe opening up")
@@ -706,7 +714,7 @@ elif now < UNLOCK_TIME:
                        ["Talk it out immediately", "Take time to cool off"], horizontal=True)
         
         st.markdown("---")
-        st.markdown("### 🎵 Interests & Preferences")
+        st.markdown('<div class="section-header">🎵 Interests & Preferences</div>', unsafe_allow_html=True)
         
         music_era = st.radio("Music era you connect with most", 
             ["Before 2000", "2000–2009", "2010–2019", "2020–Present"], horizontal=True)
@@ -720,10 +728,10 @@ elif now < UNLOCK_TIME:
              "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"], horizontal=False)
         
         st.markdown("---")
-        st.markdown("### 📱 Optional Info")
+        st.markdown('<div class="section-header">📱 Optional Information</div>', unsafe_allow_html=True)
         
         instagram = st.text_input("Instagram (optional)", placeholder="@username")
-        share_instagram = st.checkbox("Allow my Instagram to be shared with matches")
+        share_instagram = st.checkbox("✓ Allow my Instagram to be shared with matches")
         
         match_message = st.text_area("Optional message for matches", 
                                       placeholder="A fun fact or message your matches will see...",
@@ -731,12 +739,16 @@ elif now < UNLOCK_TIME:
         
         st.markdown("---")
         
-        confirm_nitj = st.checkbox("I confirm I am from NIT Jalandhar")
+        confirm_nitj = st.checkbox("✓ I confirm I am from NIT Jalandhar")
         
-        submitted = st.form_submit_button("Submit")
+        submitted = st.form_submit_button("🚀 Submit My Profile", use_container_width=True)
         
         if submitted:
-            if not confirm_nitj:
+            if not alias or not email:
+                st.error("❌ Please fill in all required fields")
+            elif not email.endswith("@nitj.ac.in"):
+                st.error("❌ Please use your official NIT Jalandhar email (@nitj.ac.in)")
+            elif not confirm_nitj:
                 st.error("❌ Please confirm you are from NIT Jalandhar")
             else:
                 # Process binary questions
@@ -772,34 +784,63 @@ elif now < UNLOCK_TIME:
                 
                 db.collection("users").add(user_data)
                 
-                # Create and send magic link
+                # Create magic link token but don't send email yet
                 token = create_magic_link(email_hash_val, email)
                 
-                if send_magic_link(email, token):
-                    st.success("✅ Registration successful! Check your email for login link.")
-                    st.balloons()
-                else:
-                    st.warning("⚠️ Registration saved but email failed. Please use login below.")
+                st.success("✅ Registration successful! You'll receive a login link via email after the unlock time.")
+                st.balloons()
+                
+                st.markdown("""
+                <div class="success-box" style="margin-top:1rem;">
+                    <div style="text-align:center;">
+                        <div style="font-size:1.2rem;margin-bottom:0.5rem;">🎉 You're all set!</div>
+                        <div>Check your email on <strong>Feb 6, 8 PM</strong> to see your matches</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-# ================= AFTER UNLOCK - LOGIN SECTION =================
+# ================= AFTER UNLOCK - LOGIN SECTION (ONLY AVAILABLE AFTER UNLOCK TIME) =================
 else:
+    apply_styles()
+    
     st.markdown("""
     <div class="glass" style="text-align:center;">
-        <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">🎉 Matches Are Live!</div>
+        <div style="font-size:2rem;margin-bottom:1rem;">🎉</div>
+        <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">Matches Are Live!</div>
         <div class="small-note">Login to view your compatible matches</div>
     </div>
     """, unsafe_allow_html=True)
     
     with st.form("login_form"):
-        login_email = st.text_input("Your NIT Jalandhar Email")
-        login_submit = st.form_submit_button("📧 Send Login Link")
+        st.markdown('<div class="section-header">🔐 Login</div>', unsafe_allow_html=True)
+        login_email = st.text_input("Your NIT Jalandhar Email", placeholder="yourname@nitj.ac.in")
+        login_submit = st.form_submit_button("📧 Send Login Link", use_container_width=True)
         
         if login_submit:
-            login_hash = hash_email(login_email)
-            token = create_magic_link(login_hash)
-            update_user_email(login_hash, login_email)
-            
-            if send_magic_link(login_email, token):
-                st.success("✅ Login link sent! Check your email.")
+            if not login_email.endswith("@nitj.ac.in"):
+                st.error("❌ Please use your official NIT Jalandhar email")
             else:
-                st.error("❌ Failed to send email. Please try again.")
+                login_hash = hash_email(login_email)
+                
+                # Check if user exists
+                users = fetch_users()
+                user_exists = any(u.get("email_hash") == login_hash for u in users)
+                
+                if not user_exists:
+                    st.error("❌ No account found with this email. Please register first.")
+                else:
+                    token = create_magic_link(login_hash, login_email)
+                    update_user_email(login_hash, login_email)
+                    
+                    if send_magic_link(login_email, token):
+                        st.success("✅ Login link sent! Check your email.")
+                        st.markdown("""
+                        <div class="info-box" style="margin-top:1rem;">
+                            <div style="text-align:center;">
+                                <div>📧 Check your inbox for the magic login link</div>
+                                <div class="small-note" style="margin-top:0.5rem;">The link expires in 24 hours</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.error("❌ Failed to send email. Please try again.")
