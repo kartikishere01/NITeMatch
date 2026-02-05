@@ -372,12 +372,6 @@ def verify_magic_token(token):
     except:
         return None
 
-def update_user_email(email_hash, email):
-    """Update user's email for future logins"""
-    users = db.collection("users").where("email_hash", "==", email_hash).stream()
-    for user in users:
-        db.collection("users").document(user.id).update({"email": email})
-
 def send_magic_link(email, token):
     """Send magic link to user's email"""
     
@@ -510,7 +504,7 @@ st.markdown('<div class="subtitle">Find your perfect match at NIT Jalandhar</div
 # Get current time
 now = datetime.now(IST)
 
-# Check for magic link token in URL
+# Check for magic link token in URL (only works after unlock time)
 params = st.query_params
 token = params.get("token", None)
 
@@ -520,8 +514,8 @@ if "logged_in" not in st.session_state:
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
-# Verify magic link token if present
-if token and not st.session_state.logged_in:
+# Verify magic link token if present and after unlock time
+if token and not st.session_state.logged_in and now >= UNLOCK_TIME:
     email_hash = verify_magic_token(token)
     if email_hash:
         users = fetch_users()
@@ -784,17 +778,19 @@ elif now < UNLOCK_TIME:
                 
                 db.collection("users").add(user_data)
                 
-                # Create magic link token but don't send email yet
-                token = create_magic_link(email_hash_val, email)
-                
-                st.success("✅ Registration successful! You'll receive a login link via email after the unlock time.")
+                st.success("✅ Registration successful!")
                 st.balloons()
                 
                 st.markdown("""
                 <div class="success-box" style="margin-top:1rem;">
                     <div style="text-align:center;">
                         <div style="font-size:1.2rem;margin-bottom:0.5rem;">🎉 You're all set!</div>
-                        <div>Check your email on <strong>Feb 6, 8 PM</strong> to see your matches</div>
+                        <div style="margin-bottom:0.8rem;">Come back on <strong>Feb 6, 8 PM IST</strong> to login and see your matches</div>
+                        <div style="font-size:0.9rem;opacity:0.85;margin-top:1rem;padding:1rem;background:rgba(255,255,255,0.05);border-radius:8px;">
+                            <strong>How to login after unlock:</strong><br>
+                            Option 1: Use your <strong>alias as username</strong> and <strong>email as password</strong><br>
+                            Option 2: Request a <strong>magic login link</strong> sent to your email
+                        </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -807,40 +803,89 @@ else:
     <div class="glass" style="text-align:center;">
         <div style="font-size:2rem;margin-bottom:1rem;">🎉</div>
         <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">Matches Are Live!</div>
-        <div class="small-note">Login to view your compatible matches</div>
+        <div class="small-note">Choose your preferred login method below</div>
     </div>
     """, unsafe_allow_html=True)
     
-    with st.form("login_form"):
-        st.markdown('<div class="section-header">🔐 Login</div>', unsafe_allow_html=True)
-        login_email = st.text_input("Your NIT Jalandhar Email", placeholder="yourname@nitj.ac.in")
-        login_submit = st.form_submit_button("📧 Send Login Link", use_container_width=True)
+    # Create two columns for login options
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div class="glass" style="text-align:center;padding:20px;">
+            <div style="font-size:1.2rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(90deg,#ff4fd8,#00ffe1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                Option 1: Direct Login
+            </div>
+            <div style="font-size:0.9rem;opacity:0.8;margin-bottom:1rem;">Login with your alias and email</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        if login_submit:
-            if not login_email.endswith("@nitj.ac.in"):
-                st.error("❌ Please use your official NIT Jalandhar email")
-            else:
-                login_hash = hash_email(login_email)
-                
-                # Check if user exists
-                users = fetch_users()
-                user_exists = any(u.get("email_hash") == login_hash for u in users)
-                
-                if not user_exists:
-                    st.error("❌ No account found with this email. Please register first.")
+        with st.form("direct_login_form"):
+            login_alias = st.text_input("Your Alias", placeholder="Enter your alias")
+            login_email = st.text_input("Your Email", placeholder="yourname@nitj.ac.in")
+            direct_login_btn = st.form_submit_button("🚀 Login", use_container_width=True)
+            
+            if direct_login_btn:
+                if not login_alias or not login_email:
+                    st.error("❌ Please fill in both fields")
+                elif not login_email.endswith("@nitj.ac.in"):
+                    st.error("❌ Please use your official NIT Jalandhar email")
                 else:
-                    token = create_magic_link(login_hash, login_email)
-                    update_user_email(login_hash, login_email)
+                    login_hash = hash_email(login_email)
                     
-                    if send_magic_link(login_email, token):
-                        st.success("✅ Login link sent! Check your email.")
-                        st.markdown("""
-                        <div class="info-box" style="margin-top:1rem;">
-                            <div style="text-align:center;">
-                                <div>📧 Check your inbox for the magic login link</div>
-                                <div class="small-note" style="margin-top:0.5rem;">The link expires in 24 hours</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    # Find user by email hash and alias
+                    users = fetch_users()
+                    user = next((u for u in users 
+                               if u.get("email_hash") == login_hash 
+                               and u.get("alias") == login_alias), None)
+                    
+                    if not user:
+                        st.error("❌ Invalid alias or email. Please check your credentials.")
                     else:
-                        st.error("❌ Failed to send email. Please try again.")
+                        # Log the user in
+                        st.session_state.logged_in = True
+                        st.session_state.current_user = user
+                        st.success("✅ Login successful! Loading your matches...")
+                        st.rerun()
+    
+    with col2:
+        st.markdown("""
+        <div class="glass" style="text-align:center;padding:20px;">
+            <div style="font-size:1.2rem;font-weight:700;margin-bottom:1rem;background:linear-gradient(90deg,#ff4fd8,#00ffe1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                Option 2: Magic Link
+            </div>
+            <div style="font-size:0.9rem;opacity:0.8;margin-bottom:1rem;">Get a login link via email</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("magic_link_form"):
+            magic_email = st.text_input("Your Email", placeholder="yourname@nitj.ac.in", key="magic_email")
+            magic_link_btn = st.form_submit_button("📧 Send Login Link", use_container_width=True)
+            
+            if magic_link_btn:
+                if not magic_email.endswith("@nitj.ac.in"):
+                    st.error("❌ Please use your official NIT Jalandhar email")
+                else:
+                    magic_hash = hash_email(magic_email)
+                    
+                    # Check if user exists
+                    users = fetch_users()
+                    user = next((u for u in users if u.get("email_hash") == magic_hash), None)
+                    
+                    if not user:
+                        st.error("❌ No account found with this email.")
+                    else:
+                        token = create_magic_link(magic_hash, magic_email)
+                        
+                        if send_magic_link(magic_email, token):
+                            st.success("✅ Login link sent to your email!")
+                            st.markdown("""
+                            <div class="info-box" style="margin-top:1rem;">
+                                <div style="text-align:center;font-size:0.9rem;">
+                                    📧 Check your inbox and click the link to login<br>
+                                    <span class="small-note">Link expires in 24 hours</span>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.error("❌ Failed to send email. Please try again.")
