@@ -9,6 +9,7 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import time
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -282,6 +283,96 @@ hr {{
     margin-bottom: 1rem;
     animation: pulse 2s ease-in-out infinite;
 }}
+
+/* Chat-specific styles */
+.chat-container {{
+    background: rgba(12,12,22,0.95);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid rgba(255,255,255,0.1);
+    max-height: 500px;
+    overflow-y: auto;
+}}
+
+.chat-message {{
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    border-left: 3px solid rgba(0,255,225,0.5);
+}}
+
+.chat-message.sent {{
+    background: linear-gradient(135deg, rgba(255,79,216,0.2), rgba(0,255,225,0.15));
+    border-left: 3px solid rgba(255,79,216,0.7);
+    margin-left: 20px;
+}}
+
+.chat-message.received {{
+    background: rgba(139,92,246,0.15);
+    border-left: 3px solid rgba(139,92,246,0.7);
+    margin-right: 20px;
+}}
+
+.chat-sender {{
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #00ffe1;
+    margin-bottom: 4px;
+}}
+
+.chat-text {{
+    font-size: 0.95rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+}}
+
+.chat-time {{
+    font-size: 0.75rem;
+    opacity: 0.6;
+    margin-top: 4px;
+    text-align: right;
+}}
+
+.chat-input-container {{
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 12px;
+    margin-top: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+}}
+
+.unread-badge {{
+    background: linear-gradient(135deg, #ff4fd8, #ec4899);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-left: 8px;
+    animation: pulse 2s ease-in-out infinite;
+}}
+
+/* Scrollbar styling for chat */
+.chat-container::-webkit-scrollbar {{
+    width: 8px;
+}}
+
+.chat-container::-webkit-scrollbar-track {{
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+}}
+
+.chat-container::-webkit-scrollbar-thumb {{
+    background: linear-gradient(135deg, #ff4fd8, #00ffe1);
+    border-radius: 10px;
+}}
+
+.chat-container::-webkit-scrollbar-thumb:hover {{
+    background: linear-gradient(135deg, #ec4899, #00d4b8);
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -495,6 +586,203 @@ def show_compatibility_details(current_user, matched_user):
     with col2:
         st.metric("🎵 Interests", f"{interest_score:.0f}%")
 
+# ================= CHAT FUNCTIONS =================
+def get_chat_id(user1_id, user2_id):
+    """Generate a consistent chat ID for two users"""
+    return "_".join(sorted([user1_id, user2_id]))
+
+def send_message(chat_id, sender_id, sender_alias, message_text):
+    """Send a message in a chat"""
+    # Validate message
+    if not message_text or not message_text.strip():
+        return False
+    
+    message_data = {
+        "sender_id": sender_id,
+        "sender_alias": sender_alias,
+        "message": message_text.strip(),
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "read": False
+    }
+    
+    try:
+        db.collection("chats").document(chat_id).collection("messages").add(message_data)
+        
+        # Update chat metadata
+        chat_ref = db.collection("chats").document(chat_id)
+        chat_doc = chat_ref.get()
+        
+        if not chat_doc.exists:
+            chat_ref.set({
+                "participants": [sender_id],
+                "last_message": message_text.strip(),
+                "last_message_time": firestore.SERVER_TIMESTAMP,
+                "created_at": firestore.SERVER_TIMESTAMP
+            })
+        else:
+            chat_ref.update({
+                "last_message": message_text.strip(),
+                "last_message_time": firestore.SERVER_TIMESTAMP
+            })
+        
+        return True
+    except Exception as e:
+        # Log error for debugging (optional)
+        # print(f"Error sending message: {e}")
+        return False
+
+def get_messages(chat_id, limit=50):
+    """Get messages from a chat"""
+    messages = []
+    try:
+        docs = db.collection("chats").document(chat_id).collection("messages")\
+                .order_by("timestamp", direction=firestore.Query.ASCENDING)\
+                .limit(limit).stream()
+        
+        for doc in docs:
+            msg_data = doc.to_dict()
+            msg_data["_id"] = doc.id
+            
+            # Only include messages with required fields
+            if msg_data.get("message") and msg_data.get("sender_id"):
+                messages.append(msg_data)
+    except Exception as e:
+        # Log error for debugging (optional)
+        # print(f"Error getting messages: {e}")
+        pass
+    
+    return messages
+
+def mark_messages_as_read(chat_id, current_user_id):
+    """Mark all messages from other user as read"""
+    try:
+        messages = db.collection("chats").document(chat_id).collection("messages")\
+                    .where("sender_id", "!=", current_user_id)\
+                    .where("read", "==", False).stream()
+        
+        for msg in messages:
+            msg.reference.update({"read": True})
+    except:
+        pass
+
+def get_unread_count(chat_id, current_user_id):
+    """Get count of unread messages for current user"""
+    try:
+        messages = db.collection("chats").document(chat_id).collection("messages")\
+                    .where("sender_id", "!=", current_user_id)\
+                    .where("read", "==", False).stream()
+        
+        count = 0
+        for msg in messages:
+            # Verify message has required fields
+            msg_data = msg.to_dict()
+            if msg_data.get("message") and msg_data.get("sender_id"):
+                count += 1
+        
+        return count
+    except Exception as e:
+        # Log error for debugging (optional)
+        # print(f"Error getting unread count: {e}")
+        return 0
+
+def display_chat(current_user, matched_user):
+    """Display chat interface for a matched user"""
+    
+    chat_id = get_chat_id(current_user["_id"], matched_user["_id"])
+    
+    st.markdown(f"""
+    <div class="glass">
+        <div style="text-align:center;">
+            <div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">
+                💬 Chat with {matched_user['alias']}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Messages container
+    messages = get_messages(chat_id)
+    
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    
+    if not messages:
+        st.markdown("""
+        <div style="text-align:center;padding:40px;opacity:0.7;">
+            <div style="font-size:2rem;margin-bottom:1rem;">💭</div>
+            <div>No messages yet. Start the conversation!</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        for msg in messages:
+            # Skip messages without required fields
+            if not msg.get("message") or not msg.get("sender_id"):
+                continue
+                
+            is_sent = msg["sender_id"] == current_user["_id"]
+            msg_class = "sent" if is_sent else "received"
+            
+            # Get sender alias safely
+            sender_name = "You" if is_sent else msg.get("sender_alias", "Unknown")
+            
+            timestamp = ""
+            if msg.get("timestamp"):
+                try:
+                    dt = msg["timestamp"].replace(tzinfo=timezone.utc).astimezone(IST)
+                    timestamp = dt.strftime("%I:%M %p")
+                except:
+                    pass
+            
+            # Escape HTML in message to prevent injection
+            message_text = str(msg.get("message", "")).replace("<", "&lt;").replace(">", "&gt;")
+            
+            st.markdown(f"""
+            <div class="chat-message {msg_class}">
+                <div class="chat-sender">{sender_name}</div>
+                <div class="chat-text">{message_text}</div>
+                <div class="chat-time">{timestamp}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Mark messages as read
+    mark_messages_as_read(chat_id, current_user["_id"])
+    
+    # Message input
+    st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
+    
+    with st.form(key=f"chat_form_{chat_id}", clear_on_submit=True):
+        col1, col2 = st.columns([4, 1])
+        
+        with col1:
+            new_message = st.text_input(
+                "Message",
+                placeholder="Type your message...",
+                label_visibility="collapsed",
+                key=f"msg_input_{chat_id}"
+            )
+        
+        with col2:
+            send_btn = st.form_submit_button("📤 Send", use_container_width=True)
+        
+        if send_btn and new_message.strip():
+            success = send_message(
+                chat_id,
+                current_user["_id"],
+                current_user["alias"],
+                new_message.strip()
+            )
+            if success:
+                st.rerun()
+            else:
+                st.error("Failed to send message. Please try again.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Auto-refresh button
+    if st.button("🔄 Refresh Messages", key=f"refresh_{chat_id}"):
+        st.rerun()
+
 # ================= MAIN APP =================
 
 # Header
@@ -513,6 +801,10 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
+if "active_chat" not in st.session_state:
+    st.session_state.active_chat = None
+if "view_mode" not in st.session_state:
+    st.session_state.view_mode = "matches"  # "matches" or "chat"
 
 # Verify magic link token if present and after unlock time
 if token and not st.session_state.logged_in and now >= UNLOCK_TIME:
@@ -549,76 +841,174 @@ if st.session_state.logged_in and st.session_state.current_user:
         </div>
         """, unsafe_allow_html=True)
         
-        if matches:
-            st.markdown(f"""
-            <div class="success-box">
-                <div style="font-size:1.3rem;font-weight:700;text-align:center;">
-                    <span class="heart-beat">💕</span> You have {len(matches)} compatible match{"es" if len(matches) > 1 else ""}! <span class="heart-beat">💕</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        # Navigation buttons
+        col1, col2, col3 = st.columns([2, 2, 1])
+        
+        with col1:
+            if st.button("📋 View Matches", use_container_width=True, 
+                        type="primary" if st.session_state.view_mode == "matches" else "secondary"):
+                st.session_state.view_mode = "matches"
+                st.session_state.active_chat = None
+                st.rerun()
+        
+        with col2:
+            # Count total unread messages
+            total_unread = 0
+            for match in matches:
+                chat_id = get_chat_id(current_user["_id"], match["user"]["_id"])
+                total_unread += get_unread_count(chat_id, current_user["_id"])
             
-            for idx, match in enumerate(matches, 1):
-                matched_user = match["user"]
-                score = match["score"] * 100
-                
+            chat_label = f"💬 Messages"
+            if total_unread > 0:
+                chat_label += f" ({total_unread})"
+            
+            if st.button(chat_label, use_container_width=True,
+                        type="primary" if st.session_state.view_mode == "chat" else "secondary"):
+                st.session_state.view_mode = "chat"
+                st.rerun()
+        
+        with col3:
+            if st.button("🚪 Logout", use_container_width=True):
+                st.session_state.logged_in = False
+                st.session_state.current_user = None
+                st.session_state.active_chat = None
+                st.session_state.view_mode = "matches"
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # VIEW MODES
+        if st.session_state.view_mode == "matches":
+            # MATCHES VIEW
+            if matches:
                 st.markdown(f"""
-                <div class="glass match-glow">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                        <div style="font-size:1.4rem;font-weight:700;">
-                            Match #{idx}
-                        </div>
-                        <div style="font-size:1.8rem;font-weight:900;background:linear-gradient(90deg,#ff4fd8,#00ffe1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                            {score:.0f}%
-                        </div>
+                <div class="success-box">
+                    <div style="font-size:1.3rem;font-weight:700;text-align:center;">
+                        <span class="heart-beat">💕</span> You have {len(matches)} compatible match{"es" if len(matches) > 1 else ""}! <span class="heart-beat">💕</span>
                     </div>
-                    <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:16px;">
-                        <div style="font-size:1.5rem;font-weight:700;text-align:center;color:#00ffe1;">
-                            {matched_user['alias']}
-                        </div>
-                    </div>
+                </div>
                 """, unsafe_allow_html=True)
                 
-                # Show Instagram if shared
-                if matched_user.get("share_instagram", False) and matched_user.get("instagram"):
-                    instagram_handle = matched_user['instagram'].replace('@', '')
+                for idx, match in enumerate(matches, 1):
+                    matched_user = match["user"]
+                    score = match["score"] * 100
+                    chat_id = get_chat_id(current_user["_id"], matched_user["_id"])
+                    unread = get_unread_count(chat_id, current_user["_id"])
+                    
                     st.markdown(f"""
-                    <div style="background: rgba(255,255,255,0.05); padding: 14px; border-radius: 10px; margin-bottom: 12px; text-align:center;">
-                        <span style="font-size:1.2rem;">📸</span> <strong>Instagram:</strong> 
-                        <a href="https://instagram.com/{instagram_handle}" 
-                        target="_blank" style="color: #00ffe1; font-weight:600; text-decoration:none;">
-                        @{instagram_handle}
-                        </a>
-                    </div>
+                    <div class="glass match-glow">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                            <div style="font-size:1.4rem;font-weight:700;">
+                                Match #{idx}
+                            </div>
+                            <div style="font-size:1.8rem;font-weight:900;background:linear-gradient(90deg,#ff4fd8,#00ffe1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+                                {score:.0f}%
+                            </div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:16px;">
+                            <div style="font-size:1.5rem;font-weight:700;text-align:center;color:#00ffe1;">
+                                {matched_user['alias']}
+                            </div>
+                        </div>
                     """, unsafe_allow_html=True)
-                
-                # Show message for matches
-                if matched_user.get("match_message"):
-                    st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, rgba(255,79,216,0.15), rgba(0,255,225,0.15)); padding: 18px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #ff4fd8;">
-                        <div style="font-weight: 600; margin-bottom: 8px; color: #ff4fd8;">💬 Message from {matched_user['alias']}:</div>
-                        <div style="font-style: italic; opacity: 0.95; line-height: 1.5;">"{matched_user['match_message']}"</div>
+                    
+                    # Show Instagram if shared
+                    if matched_user.get("share_instagram", False) and matched_user.get("instagram"):
+                        instagram_handle = matched_user['instagram'].replace('@', '')
+                        st.markdown(f"""
+                        <div style="background: rgba(255,255,255,0.05); padding: 14px; border-radius: 10px; margin-bottom: 12px; text-align:center;">
+                            <span style="font-size:1.2rem;">📸</span> <strong>Instagram:</strong> 
+                            <a href="https://instagram.com/{instagram_handle}" 
+                            target="_blank" style="color: #00ffe1; font-weight:600; text-decoration:none;">
+                            @{instagram_handle}
+                            </a>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    # Show message for matches
+                    if matched_user.get("match_message"):
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, rgba(255,79,216,0.15), rgba(0,255,225,0.15)); padding: 18px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #ff4fd8;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #ff4fd8;">💬 Message from {matched_user['alias']}:</div>
+                            <div style="font-style: italic; opacity: 0.95; line-height: 1.5;">"{matched_user['match_message']}"</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    # Chat button
+                    chat_btn_label = f"💬 Chat with {matched_user['alias']}"
+                    if unread > 0:
+                        chat_btn_label += f" ({unread} new)"
+                    
+                    if st.button(chat_btn_label, key=f"chat_btn_{matched_user['_id']}", use_container_width=True):
+                        st.session_state.view_mode = "chat"
+                        st.session_state.active_chat = matched_user["_id"]
+                        st.rerun()
+                    
+                    show_compatibility_details(current_user, matched_user)
+                    st.markdown("---")
+            else:
+                st.markdown("""
+                <div class="info-box">
+                    <div style="text-align:center;">
+                        <div style="font-size:2rem;margin-bottom:1rem;">🔍</div>
+                        <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No matches found yet</div>
+                        <div style="opacity:0.8;">Don't worry! More people are joining. Check back later!</div>
                     </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-                show_compatibility_details(current_user, matched_user)
-                st.markdown("---")
-        else:
-            st.markdown("""
-            <div class="info-box">
-                <div style="text-align:center;">
-                    <div style="font-size:2rem;margin-bottom:1rem;">🔍</div>
-                    <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No matches found yet</div>
-                    <div style="opacity:0.8;">Don't worry! More people are joining. Check back later!</div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
         
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.current_user = None
-            st.rerun()
+        elif st.session_state.view_mode == "chat":
+            # CHAT VIEW
+            if not matches:
+                st.markdown("""
+                <div class="info-box">
+                    <div style="text-align:center;">
+                        <div style="font-size:2rem;margin-bottom:1rem;">💬</div>
+                        <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No matches to chat with</div>
+                        <div style="opacity:0.8;">Find matches first to start chatting!</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # If no active chat selected, show list of matches
+                if not st.session_state.active_chat:
+                    st.markdown("""
+                    <div class="glass">
+                        <div style="text-align:center;margin-bottom:1.5rem;">
+                            <div style="font-size:1.3rem;font-weight:700;">Select a match to chat with</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    for match in matches:
+                        matched_user = match["user"]
+                        chat_id = get_chat_id(current_user["_id"], matched_user["_id"])
+                        unread = get_unread_count(chat_id, current_user["_id"])
+                        
+                        btn_label = f"💬 {matched_user['alias']}"
+                        if unread > 0:
+                            btn_label += f" • {unread} new"
+                        
+                        if st.button(btn_label, key=f"select_chat_{matched_user['_id']}", use_container_width=True):
+                            st.session_state.active_chat = matched_user["_id"]
+                            st.rerun()
+                
+                # If active chat selected, show chat interface
+                else:
+                    matched_user = next((m["user"] for m in matches if m["user"]["_id"] == st.session_state.active_chat), None)
+                    
+                    if matched_user:
+                        # Back button
+                        if st.button("⬅️ Back to chat list", key="back_to_list"):
+                            st.session_state.active_chat = None
+                            st.rerun()
+                        
+                        display_chat(current_user, matched_user)
+                    else:
+                        st.session_state.active_chat = None
+                        st.rerun()
     
     else:
         # Logged in but before unlock time
