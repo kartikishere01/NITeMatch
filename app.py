@@ -795,18 +795,19 @@ if st.session_state.logged_in and st.session_state.current_user:
                                 {"<span class='unread-badge'>" + str(unread) + " new</span>" if unread > 0 else ""}
                             </div>
                         </div>
+                    </div>
                     """, unsafe_allow_html=True)
                     
                     if match_user.get("match_message"):
                         st.markdown(f"""
-                        <div style="margin-top:0.8rem;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-style:italic;">
+                        <div class="match-card" style="margin-top:0.8rem;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-style:italic;">
                             "{match_user['match_message']}"
                         </div>
                         """, unsafe_allow_html=True)
                     
                     if match_user.get("share_instagram") and match_user.get("instagram"):
                         st.markdown(f"""
-                        <div style="margin-top:0.5rem;">
+                        <div class="match-card" style="margin-top:0.5rem;padding:10px;">
                             📸 Instagram: <a href="https://instagram.com/{match_user['instagram'].replace('@','')}" 
                                style="color:#00ffe1;text-decoration:none;" target="_blank">
                                {match_user['instagram']}
@@ -821,8 +822,6 @@ if st.session_state.logged_in and st.session_state.current_user:
                         }
                         mark_messages_read(chat_id, current_user["id"])
                         st.rerun()
-                    
-                    st.markdown("</div>", unsafe_allow_html=True)
         
         else:
             active_chat = st.session_state.active_chat
