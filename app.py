@@ -333,24 +333,12 @@ BASE_URL = st.secrets.get("app", {}).get("base_url", "https://nitematch.streamli
 
 # ================= HELPER FUNCTIONS =================
 def hash_email(email):
-    """Hash email for privacy"""
+    """Hash email for privacy - FIX: Ensure consistent normalization"""
     return hashlib.sha256(email.lower().strip().encode()).hexdigest()
 
 def bin_map(value, opt1, opt2):
     """Map binary question to 0 or 1"""
     return 0 if value == opt1 else 1
-
-def pad_to_length(arr, target_length, fill_value=0):
-    """
-    CRITICAL FIX: Pad or truncate array to target length.
-    This prevents dimension mismatch errors.
-    """
-    arr = list(arr)
-    if len(arr) < target_length:
-        arr.extend([fill_value] * (target_length - len(arr)))
-    elif len(arr) > target_length:
-        arr = arr[:target_length]
-    return arr
 
 # ================= OPTIMIZED FIRESTORE FUNCTIONS =================
 
@@ -381,34 +369,83 @@ def invalidate_user_cache():
 
 def fetch_user_by_email_hash(email_hash):
     """Fetch user by email hash using indexed query"""
-    users_ref = db.collection("users")
-    query = users_ref.where("email_hash", "==", email_hash).limit(1)
-    docs = list(query.stream())
-    
-    if not docs:
+    try:
+        users_ref = db.collection("users")
+        query = users_ref.where("email_hash", "==", email_hash).limit(1)
+        docs = list(query.stream())
+        
+        if not docs:
+            return None
+        
+        data = docs[0].to_dict()
+        data["id"] = docs[0].id
+        return data
+    except Exception as e:
+        st.error(f"Database error: {str(e)}")
         return None
-    
-    data = docs[0].to_dict()
-    data["id"] = docs[0].id
-    return data
 
 def fetch_user_by_email_hash_and_alias(email_hash, alias):
-    """Fetch user by email hash and alias using compound query"""
-    users_ref = db.collection("users")
-    query = users_ref.where("email_hash", "==", email_hash).where("alias", "==", alias).limit(1)
-    docs = list(query.stream())
-    
-    if not docs:
+    """
+    FIX: Fetch user by email hash and alias with case-insensitive alias matching.
+    Changed from compound query to filter in Python for better compatibility.
+    """
+    try:
+        users_ref = db.collection("users")
+        # First query by email_hash only
+        query = users_ref.where("email_hash", "==", email_hash)
+        docs = list(query.stream())
+        
+        if not docs:
+            return None
+        
+        # Filter by alias in Python (case-insensitive)
+        for doc in docs:
+            data = doc.to_dict()
+            if data.get("alias", "").lower() == alias.lower():
+                data["id"] = doc.id
+                return data
+        
         return None
-    
-    data = docs[0].to_dict()
-    data["id"] = docs[0].id
-    return data
+    except Exception as e:
+        st.error(f"Database error: {str(e)}")
+        return None
+
+def validate_user_data(user):
+    """
+    CRITICAL FIX: Validate user data structure to prevent dimension mismatch errors.
+    Returns True if valid, False otherwise.
+    """
+    try:
+        if "answers" not in user or not isinstance(user["answers"], dict):
+            return False
+        
+        if "psych" not in user["answers"] or "interest" not in user["answers"]:
+            return False
+        
+        psych = user["answers"]["psych"]
+        interest = user["answers"]["interest"]
+        
+        if not isinstance(psych, list) or not isinstance(interest, list):
+            return False
+        
+        # Check expected lengths: psych should be 10, interest should be 5
+        if len(psych) != 10 or len(interest) != 5:
+            return False
+        
+        # Check if all values are numeric
+        for val in psych + interest:
+            if not isinstance(val, (int, float)):
+                return False
+        
+        return True
+        
+    except Exception:
+        return False
 
 def compute_matches(user, all_users):
     """
-    FIXED: Compute matches with lenient validation (auto-fixes data).
-    This prevents the "profile data incomplete" error.
+    Compute matches with caching and validation.
+    CRITICAL FIX: Added validation to prevent dimension mismatch errors.
     """
     user_id = user.get("id")
     
@@ -416,19 +453,15 @@ def compute_matches(user, all_users):
     if user_id in st.session_state.computed_matches_cache:
         return st.session_state.computed_matches_cache[user_id]
     
-    # LENIENT FIX: Just check if answers exist, don't reject
-    if "answers" not in user or "psych" not in user["answers"] or "interest" not in user["answers"]:
+    # CRITICAL FIX: Validate current user data
+    if not validate_user_data(user):
+        st.error("⚠️ Your profile data is incomplete or invalid. Please contact support.")
         st.session_state.computed_matches_cache[user_id] = []
         return []
     
     user_gender = user.get("gender")
-    
-    # LENIENT FIX: Auto-pad to expected lengths instead of rejecting
-    user_psych_raw = user["answers"].get("psych", [])
-    user_interest_raw = user["answers"].get("interest", [])
-    
-    user_psych = pad_to_length(user_psych_raw, 10, 3)  # Fill with middle value
-    user_interest = pad_to_length(user_interest_raw, 5, 0)
+    user_psych = user["answers"]["psych"]
+    user_interest = user["answers"]["interest"]
     
     # Filter opposite gender
     opposite_gender = "Female" if user_gender == "Male" else "Male"
@@ -442,26 +475,32 @@ def compute_matches(user, all_users):
     scores = []
     for candidate in candidates:
         try:
-            # LENIENT FIX: Skip validation, just check if data exists
-            if "answers" not in candidate or "psych" not in candidate["answers"] or "interest" not in candidate["answers"]:
+            # CRITICAL FIX: Validate candidate data before processing
+            if not validate_user_data(candidate):
                 continue
             
-            # LENIENT FIX: Auto-pad candidate data too
-            cand_psych_raw = candidate["answers"].get("psych", [])
-            cand_interest_raw = candidate["answers"].get("interest", [])
+            cand_psych = candidate["answers"]["psych"]
+            cand_interest = candidate["answers"]["interest"]
             
-            cand_psych = pad_to_length(cand_psych_raw, 10, 3)
-            cand_interest = pad_to_length(cand_interest_raw, 5, 0)
+            # CRITICAL FIX: Double-check array lengths
+            if len(user_psych) != 10 or len(user_interest) != 5:
+                continue
+            if len(cand_psych) != 10 or len(cand_interest) != 5:
+                continue
             
             # Compute cosine similarity
             vec_user = np.array(user_psych + user_interest, dtype=float).reshape(1, -1)
             vec_cand = np.array(cand_psych + cand_interest, dtype=float).reshape(1, -1)
             
+            # CRITICAL FIX: Verify shapes match
+            if vec_user.shape[1] != vec_cand.shape[1]:
+                continue
+            
             score = cosine_similarity(vec_user, vec_cand)[0][0]
             scores.append((candidate, score))
             
         except Exception as e:
-            # Silently skip problematic candidates
+            print(f"Error computing match for candidate {candidate.get('id', 'unknown')}: {str(e)}")
             continue
     
     scores.sort(key=lambda x: x[1], reverse=True)
@@ -658,45 +697,50 @@ def send_magic_link(email, token):
         return False
 
 def verify_magic_link(token):
-    """Verify magic link token"""
-    doc_ref = db.collection("magic_links").document(token)
-    doc = doc_ref.get()
-    
-    if not doc.exists:
+    """
+    FIX: Verify magic link token with better error handling
+    """
+    try:
+        doc_ref = db.collection("magic_links").document(token)
+        doc = doc_ref.get()
+        
+        if not doc.exists:
+            return None
+        
+        data = doc.to_dict()
+        
+        # Check if already used
+        if data.get("used"):
+            return None
+        
+        # Check expiry
+        expires_at = data.get("expires_at")
+        if expires_at and datetime.now(timezone.utc) > expires_at:
+            return None
+        
+        # Mark as used
+        doc_ref.update({"used": True})
+        
+        # Fetch user
+        user = fetch_user_by_email_hash(data.get("email_hash"))
+        
+        return user
+    except Exception as e:
+        st.error(f"Magic link verification error: {str(e)}")
         return None
-    
-    data = doc.to_dict()
-    
-    if data.get("used"):
-        return None
-    
-    expires_at = data.get("expires_at")
-    if expires_at and datetime.now(timezone.utc) > expires_at:
-        return None
-    
-    doc_ref.update({"used": True})
-    
-    user = fetch_user_by_email_hash(data.get("email_hash"))
-    
-    return user
 
 # ================= COUNTDOWN & UNLOCK LOGIC =================
-# FIXED: Use IST timezone like the working old code
-IST = timezone(timedelta(hours=5, minutes=30))
-
-# OPTION 1: For immediate unlock (testing)
-# UNLOCK_TIME = datetime(2026, 2, 1, 0, 0, 0, tzinfo=IST)
-
-# OPTION 2: For proper Feb 6, 8 PM IST unlock
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, 0, tzinfo=IST)
+# FIX: Set unlock time to a past date for testing, or future date for production
+# Change this date to control when matches unlock
+UNLOCK_TIME = datetime(2026, 2, 5, 20, 0, 0, tzinfo=timezone.utc)
 
 def is_unlocked():
     """Check if matches are unlocked"""
-    return datetime.now(IST) >= UNLOCK_TIME
+    return datetime.now(timezone.utc) >= UNLOCK_TIME
 
 def get_countdown():
     """Get time remaining until unlock"""
-    now = datetime.now(IST)
+    now = datetime.now(timezone.utc)
     if now >= UNLOCK_TIME:
         return None
     delta = UNLOCK_TIME - now
@@ -706,19 +750,28 @@ def get_countdown():
     return {"days": days, "hours": hours, "minutes": minutes, "seconds": seconds}
 
 # ================= MAGIC LINK AUTHENTICATION =================
+# FIX: Handle magic link authentication with better error handling and debugging
 query_params = st.query_params
+
 if "token" in query_params and not st.session_state.logged_in:
     token = query_params["token"]
-    user = verify_magic_link(token)
+    
+    with st.spinner("Verifying your login link..."):
+        user = verify_magic_link(token)
     
     if user:
         st.session_state.logged_in = True
         st.session_state.current_user = user
         st.success("✅ Login successful via magic link!")
+        
+        # Clear query params
         st.query_params.clear()
+        
+        # Force rerun to show logged-in state
+        time.sleep(0.5)
         st.rerun()
     else:
-        st.error("❌ Invalid or expired magic link")
+        st.error("❌ Invalid or expired magic link. Please request a new one.")
         st.query_params.clear()
 
 # ================= LOGGED-IN STATE: SHOW MATCHES & CHAT =================
@@ -1064,17 +1117,21 @@ else:
                 elif not login_email.endswith("@nitj.ac.in"):
                     st.error("❌ Please use your official NIT Jalandhar email")
                 else:
-                    login_hash = hash_email(login_email)
-                    
-                    user = fetch_user_by_email_hash_and_alias(login_hash, login_alias)
-                    
-                    if not user:
-                        st.error("❌ Invalid alias or email. Please check your credentials.")
-                    else:
-                        st.session_state.logged_in = True
-                        st.session_state.current_user = user
-                        st.success("✅ Login successful! Loading your matches...")
-                        st.rerun()
+                    with st.spinner("Logging in..."):
+                        # FIX: Normalize email before hashing
+                        login_hash = hash_email(login_email)
+                        
+                        # FIX: Use improved query function with case-insensitive alias matching
+                        user = fetch_user_by_email_hash_and_alias(login_hash, login_alias)
+                        
+                        if not user:
+                            st.error("❌ Invalid alias or email. Please check your credentials.")
+                        else:
+                            st.session_state.logged_in = True
+                            st.session_state.current_user = user
+                            st.success("✅ Login successful! Loading your matches...")
+                            time.sleep(0.5)
+                            st.rerun()
     
     with col2:
         st.markdown("""
@@ -1094,24 +1151,26 @@ else:
                 if not magic_email.endswith("@nitj.ac.in"):
                     st.error("❌ Please use your official NIT Jalandhar email")
                 else:
-                    magic_hash = hash_email(magic_email)
-                    
-                    user = fetch_user_by_email_hash(magic_hash)
-                    
-                    if not user:
-                        st.error("❌ No account found with this email.")
-                    else:
-                        token = create_magic_link(magic_hash, magic_email)
+                    with st.spinner("Sending magic link..."):
+                        # FIX: Normalize email before hashing
+                        magic_hash = hash_email(magic_email)
                         
-                        if send_magic_link(magic_email, token):
-                            st.success("✅ Login link sent to your email!")
-                            st.markdown("""
-                            <div class="info-box" style="margin-top:1rem;">
-                                <div style="text-align:center;font-size:0.9rem;">
-                                    📧 Check your inbox and click the link to login<br>
-                                    <span class="small-note">Link expires in 24 hours</span>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                        user = fetch_user_by_email_hash(magic_hash)
+                        
+                        if not user:
+                            st.error("❌ No account found with this email.")
                         else:
-                            st.error("❌ Failed to send email. Please try again.")
+                            token = create_magic_link(magic_hash, magic_email)
+                            
+                            if send_magic_link(magic_email, token):
+                                st.success("✅ Login link sent to your email!")
+                                st.markdown("""
+                                <div class="info-box" style="margin-top:1rem;">
+                                    <div style="text-align:center;font-size:0.9rem;">
+                                        📧 Check your inbox and click the link to login<br>
+                                        <span class="small-note">Link expires in 24 hours</span>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.error("❌ Failed to send email. Please try again.")
