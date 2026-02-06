@@ -10,6 +10,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import time
+from functools import lru_cache
+import threading
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -17,6 +19,11 @@ st.set_page_config(
     page_icon="💘",
     layout="centered"
 )
+
+# ================= CACHING CONFIGURATION =================
+CACHE_TTL = 300  # 5 minutes cache for user data
+CHAT_CACHE_TTL = 30  # 30 seconds for chat messages
+UNREAD_CACHE_TTL = 60  # 1 minute for unread counts
 
 # ================= ENHANCED GLOBAL STYLES =================
 def apply_styles(has_matches=False, is_countdown=False):
@@ -313,16 +320,6 @@ if "current_user" not in st.session_state:
     st.session_state.current_user = None
 if "active_chat" not in st.session_state:
     st.session_state.active_chat = None
-if "all_users_cache" not in st.session_state:
-    st.session_state.all_users_cache = None
-if "all_users_cache_time" not in st.session_state:
-    st.session_state.all_users_cache_time = None
-if "computed_matches_cache" not in st.session_state:
-    st.session_state.computed_matches_cache = {}
-if "chat_messages_cache" not in st.session_state:
-    st.session_state.chat_messages_cache = {}
-if "unread_counts_cache" not in st.session_state:
-    st.session_state.unread_counts_cache = {}
 
 # ================= CONFIGURATION =================
 SMTP_SERVER = st.secrets.get("smtp", {}).get("server", "smtp.gmail.com")
@@ -341,10 +338,7 @@ def bin_map(value, opt1, opt2):
     return 0 if value == opt1 else 1
 
 def pad_to_length(arr, target_length, fill_value=0):
-    """
-    CRITICAL FIX: Pad or truncate array to target length.
-    This prevents dimension mismatch errors.
-    """
+    """Pad or truncate array to target length"""
     arr = list(arr)
     if len(arr) < target_length:
         arr.extend([fill_value] * (target_length - len(arr)))
@@ -352,13 +346,11 @@ def pad_to_length(arr, target_length, fill_value=0):
         arr = arr[:target_length]
     return arr
 
-# ================= OPTIMIZED FIRESTORE FUNCTIONS =================
+# ================= OPTIMIZED STREAMLIT CACHING =================
 
-def fetch_users():
-    """Fetch all users with caching"""
-    if st.session_state.all_users_cache is not None:
-        return st.session_state.all_users_cache
-    
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def fetch_users_cached():
+    """Fetch all users with Streamlit's native caching"""
     users_ref = db.collection("users")
     docs = users_ref.stream()
     
@@ -368,19 +360,11 @@ def fetch_users():
         data["id"] = doc.id
         users.append(data)
     
-    st.session_state.all_users_cache = users
-    st.session_state.all_users_cache_time = datetime.now(timezone.utc)
-    
     return users
 
-def invalidate_user_cache():
-    """Invalidate user cache"""
-    st.session_state.all_users_cache = None
-    st.session_state.all_users_cache_time = None
-    st.session_state.computed_matches_cache = {}
-
-def fetch_user_by_email_hash(email_hash):
-    """Fetch user by email hash using indexed query"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_user_by_email_hash_cached(email_hash):
+    """Fetch user by email hash with caching"""
     users_ref = db.collection("users")
     query = users_ref.where("email_hash", "==", email_hash).limit(1)
     docs = list(query.stream())
@@ -392,8 +376,9 @@ def fetch_user_by_email_hash(email_hash):
     data["id"] = docs[0].id
     return data
 
-def fetch_user_by_email_hash_and_alias(email_hash, alias):
-    """Fetch user by email hash and alias using compound query"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_user_by_email_hash_and_alias_cached(email_hash, alias):
+    """Fetch user by email hash and alias with caching"""
     users_ref = db.collection("users")
     query = users_ref.where("email_hash", "==", email_hash).where("alias", "==", alias).limit(1)
     docs = list(query.stream())
@@ -405,48 +390,26 @@ def fetch_user_by_email_hash_and_alias(email_hash, alias):
     data["id"] = docs[0].id
     return data
 
-def compute_matches(user, all_users):
-    """
-    FIXED: Compute matches with lenient validation (auto-fixes data).
-    This prevents the "profile data incomplete" error.
-    """
-    user_id = user.get("id")
-    
-    # Check cache first
-    if user_id in st.session_state.computed_matches_cache:
-        return st.session_state.computed_matches_cache[user_id]
-    
-    # LENIENT FIX: Just check if answers exist, don't reject
-    if "answers" not in user or "psych" not in user["answers"] or "interest" not in user["answers"]:
-        st.session_state.computed_matches_cache[user_id] = []
-        return []
-    
-    user_gender = user.get("gender")
-    
-    # LENIENT FIX: Auto-pad to expected lengths instead of rejecting
-    user_psych_raw = user["answers"].get("psych", [])
-    user_interest_raw = user["answers"].get("interest", [])
-    
-    user_psych = pad_to_length(user_psych_raw, 10, 3)  # Fill with middle value
-    user_interest = pad_to_length(user_interest_raw, 5, 0)
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+def compute_matches_cached(user_id, user_gender, user_psych, user_interest, _all_users_tuple):
+    """Compute matches with aggressive caching"""
+    # Convert tuple back to list for processing
+    all_users = list(_all_users_tuple)
     
     # Filter opposite gender
     opposite_gender = "Female" if user_gender == "Male" else "Male"
     candidates = [u for u in all_users if u.get("gender") == opposite_gender and u.get("id") != user_id]
     
     if not candidates:
-        st.session_state.computed_matches_cache[user_id] = []
         return []
     
     # Calculate similarity scores
     scores = []
     for candidate in candidates:
         try:
-            # LENIENT FIX: Skip validation, just check if data exists
             if "answers" not in candidate or "psych" not in candidate["answers"] or "interest" not in candidate["answers"]:
                 continue
             
-            # LENIENT FIX: Auto-pad candidate data too
             cand_psych_raw = candidate["answers"].get("psych", [])
             cand_interest_raw = candidate["answers"].get("interest", [])
             
@@ -460,8 +423,7 @@ def compute_matches(user, all_users):
             score = cosine_similarity(vec_user, vec_cand)[0][0]
             scores.append((candidate, score))
             
-        except Exception as e:
-            # Silently skip problematic candidates
+        except Exception:
             continue
     
     scores.sort(key=lambda x: x[1], reverse=True)
@@ -474,17 +436,63 @@ def compute_matches(user, all_users):
     
     matches = [{"user": m[0], "score": m[1]} for m in top_matches]
     
-    st.session_state.computed_matches_cache[user_id] = matches
-    
     return matches
 
-def get_or_create_chat(user1_id, user2_id):
-    """Get or create chat with caching"""
-    chat_id = "_".join(sorted([user1_id, user2_id]))
+def compute_matches(user, all_users):
+    """Wrapper for compute_matches_cached"""
+    user_id = user.get("id")
     
-    cache_key = f"chat_exists_{chat_id}"
-    if cache_key in st.session_state:
-        return chat_id
+    if "answers" not in user or "psych" not in user["answers"] or "interest" not in user["answers"]:
+        return []
+    
+    user_gender = user.get("gender")
+    
+    user_psych_raw = user["answers"].get("psych", [])
+    user_interest_raw = user["answers"].get("interest", [])
+    
+    user_psych = tuple(pad_to_length(user_psych_raw, 10, 3))
+    user_interest = tuple(pad_to_length(user_interest_raw, 5, 0))
+    
+    # Convert all_users to tuple of tuples for hashability
+    all_users_tuple = tuple(
+        tuple(sorted(u.items())) for u in all_users
+    )
+    
+    return compute_matches_cached(user_id, user_gender, user_psych, user_interest, all_users_tuple)
+
+@st.cache_data(ttl=CHAT_CACHE_TTL, show_spinner=False)
+def fetch_messages_cached(chat_id, _timestamp=None):
+    """Fetch messages with short-term caching"""
+    messages_ref = db.collection("chats").document(chat_id).collection("messages")
+    messages_query = messages_ref.order_by("timestamp", direction=firestore.Query.ASCENDING)
+    
+    messages = []
+    for doc in messages_query.stream():
+        data = doc.to_dict()
+        data["id"] = doc.id
+        messages.append(data)
+    
+    return messages
+
+@st.cache_data(ttl=UNREAD_CACHE_TTL, show_spinner=False)
+def get_unread_count_cached(chat_id, current_user_id, _timestamp=None):
+    """Get unread count with caching"""
+    messages_ref = db.collection("chats").document(chat_id).collection("messages")
+    unread_query = messages_ref.where("read", "==", False)
+    
+    unread_count = 0
+    for msg in unread_query.stream():
+        msg_data = msg.to_dict()
+        if msg_data.get("sender_id") != current_user_id:
+            unread_count += 1
+    
+    return unread_count
+
+# ================= OPTIMIZED FIRESTORE FUNCTIONS =================
+
+def get_or_create_chat(user1_id, user2_id):
+    """Get or create chat"""
+    chat_id = "_".join(sorted([user1_id, user2_id]))
     
     chat_ref = db.collection("chats").document(chat_id)
     chat_doc = chat_ref.get()
@@ -496,30 +504,10 @@ def get_or_create_chat(user1_id, user2_id):
             "last_message_at": firestore.SERVER_TIMESTAMP
         })
     
-    st.session_state[cache_key] = True
-    
     return chat_id
 
-def fetch_messages(chat_id, force_refresh=False):
-    """Fetch messages with caching"""
-    if not force_refresh and chat_id in st.session_state.chat_messages_cache:
-        return st.session_state.chat_messages_cache[chat_id]
-    
-    messages_ref = db.collection("chats").document(chat_id).collection("messages")
-    messages_query = messages_ref.order_by("timestamp", direction=firestore.Query.ASCENDING)
-    
-    messages = []
-    for doc in messages_query.stream():
-        data = doc.to_dict()
-        data["id"] = doc.id
-        messages.append(data)
-    
-    st.session_state.chat_messages_cache[chat_id] = messages
-    
-    return messages
-
 def send_message(chat_id, sender_id, text):
-    """Send message and invalidate cache"""
+    """Send message and clear caches"""
     message_data = {
         "sender_id": sender_id,
         "text": text,
@@ -533,53 +521,25 @@ def send_message(chat_id, sender_id, text):
         "last_message_at": firestore.SERVER_TIMESTAMP
     })
     
-    if chat_id in st.session_state.chat_messages_cache:
-        del st.session_state.chat_messages_cache[chat_id]
-    
-    st.session_state.unread_counts_cache = {}
-
-def get_unread_count(chat_id, current_user_id):
-    """Get count of unread messages for current user (no composite index needed)"""
-    cache_key = f"{chat_id}_{current_user_id}"
-    
-    if cache_key in st.session_state.unread_counts_cache:
-        return st.session_state.unread_counts_cache[cache_key]
-    
-    messages_ref = db.collection("chats").document(chat_id).collection("messages")
-    
-    # Query only unread messages (single-field index, usually auto-created)
-    unread_query = messages_ref.where("read", "==", False)
-    
-    # Filter out current user's messages in Python (not in Firestore)
-    unread_count = 0
-    for msg in unread_query.stream():
-        msg_data = msg.to_dict()
-        if msg_data.get("sender_id") != current_user_id:
-            unread_count += 1
-    
-    st.session_state.unread_counts_cache[cache_key] = unread_count
-    
-    return unread_count
+    # Clear relevant caches
+    fetch_messages_cached.clear()
+    get_unread_count_cached.clear()
 
 def mark_messages_read(chat_id, current_user_id):
-    """Mark messages as read in batch (no composite index needed)"""
+    """Mark messages as read in batch"""
     messages_ref = db.collection("chats").document(chat_id).collection("messages")
-    
-    # Query only unread messages (single-field index)
     unread_query = messages_ref.where("read", "==", False)
     
     batch = db.batch()
     for doc in unread_query.stream():
-        # Filter out current user's messages in Python
         msg_data = doc.to_dict()
         if msg_data.get("sender_id") != current_user_id:
             batch.update(doc.reference, {"read": True})
     
     batch.commit()
     
-    cache_key = f"{chat_id}_{current_user_id}"
-    if cache_key in st.session_state.unread_counts_cache:
-        del st.session_state.unread_counts_cache[cache_key]
+    # Clear caches
+    get_unread_count_cached.clear()
 
 # ================= MAGIC LINK FUNCTIONS =================
 def create_magic_link(email_hash, email):
@@ -688,19 +648,13 @@ def verify_magic_link(token):
     
     doc_ref.update({"used": True})
     
-    user = fetch_user_by_email_hash(data.get("email_hash"))
+    user = fetch_user_by_email_hash_cached(data.get("email_hash"))
     
     return user
 
 # ================= COUNTDOWN & UNLOCK LOGIC =================
-# FIXED: Use IST timezone like the working old code
 IST = timezone(timedelta(hours=5, minutes=30))
-
-# OPTION 1: For immediate unlock (testing)
 UNLOCK_TIME = datetime(2026, 2, 1, 0, 0, 0, tzinfo=IST)
-
-# OPTION 2: For proper Feb 6, 8 PM IST unlock
-# UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, 0, tzinfo=IST)
 
 def is_unlocked():
     """Check if matches are unlocked"""
@@ -737,7 +691,8 @@ if "token" in query_params and not st.session_state.logged_in:
 if st.session_state.logged_in and st.session_state.current_user:
     current_user = st.session_state.current_user
     
-    all_users = fetch_users()
+    # Use cached user fetch
+    all_users = fetch_users_cached()
     matches = compute_matches(current_user, all_users)
     
     has_matches = len(matches) > 0
@@ -754,10 +709,11 @@ if st.session_state.logged_in and st.session_state.current_user:
         st.session_state.logged_in = False
         st.session_state.current_user = None
         st.session_state.active_chat = None
-        st.session_state.all_users_cache = None
-        st.session_state.computed_matches_cache = {}
-        st.session_state.chat_messages_cache = {}
-        st.session_state.unread_counts_cache = {}
+        # Clear all caches on logout
+        fetch_users_cached.clear()
+        compute_matches_cached.clear()
+        fetch_messages_cached.clear()
+        get_unread_count_cached.clear()
         st.rerun()
     
     if not matches:
@@ -781,9 +737,10 @@ if st.session_state.logged_in and st.session_state.current_user:
                 score = match["score"]
                 
                 chat_id = get_or_create_chat(current_user["id"], match_user["id"])
-                unread = get_unread_count(chat_id, current_user["id"])
                 
-                # Use a container to group the match card and button
+                # Use cached unread count with timestamp for cache busting
+                unread = get_unread_count_cached(chat_id, current_user["id"], time.time())
+                
                 with st.container():
                     unread_badge = f"<span class='unread-badge'>{unread} new</span>" if unread > 0 else ""
                     
@@ -799,7 +756,6 @@ if st.session_state.logged_in and st.session_state.current_user:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Show match message if exists
                     if match_user.get("match_message"):
                         st.markdown(f"""
                         <div style="margin-top:0.8rem;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.1);font-style:italic;">
@@ -807,7 +763,6 @@ if st.session_state.logged_in and st.session_state.current_user:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Show Instagram if shared
                     if match_user.get("share_instagram") and match_user.get("instagram"):
                         st.markdown(f"""
                         <div style="margin-top:0.5rem;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
@@ -818,7 +773,6 @@ if st.session_state.logged_in and st.session_state.current_user:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Chat button
                     if st.button(f"💬 Chat with {match_user.get('alias')}", key=f"chat_{match_user['id']}"):
                         st.session_state.active_chat = {
                             "chat_id": chat_id,
@@ -827,7 +781,6 @@ if st.session_state.logged_in and st.session_state.current_user:
                         mark_messages_read(chat_id, current_user["id"])
                         st.rerun()
                     
-                    # Add spacing between matches
                     st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
         
         else:
@@ -848,7 +801,8 @@ if st.session_state.logged_in and st.session_state.current_user:
                 st.session_state.active_chat = None
                 st.rerun()
             
-            messages = fetch_messages(chat_id)
+            # Use cached messages with timestamp for cache busting
+            messages = fetch_messages_cached(chat_id, time.time())
             
             st.markdown('<div class="glass" style="max-height:500px;overflow-y:auto;">', unsafe_allow_html=True)
             
@@ -1029,7 +983,9 @@ elif not is_unlocked():
                 
                 db.collection("users").add(user_data)
                 
-                invalidate_user_cache()
+                # Clear user cache after new registration
+                fetch_users_cached.clear()
+                compute_matches_cached.clear()
                 
                 st.success("✅ Registration successful!")
                 st.balloons()
@@ -1085,7 +1041,7 @@ else:
                 else:
                     login_hash = hash_email(login_email)
                     
-                    user = fetch_user_by_email_hash_and_alias(login_hash, login_alias)
+                    user = fetch_user_by_email_hash_and_alias_cached(login_hash, login_alias)
                     
                     if not user:
                         st.error("❌ Invalid alias or email. Please check your credentials.")
@@ -1115,7 +1071,7 @@ else:
                 else:
                     magic_hash = hash_email(magic_email)
                     
-                    user = fetch_user_by_email_hash(magic_hash)
+                    user = fetch_user_by_email_hash_cached(magic_hash)
                     
                     if not user:
                         st.error("❌ No account found with this email.")
