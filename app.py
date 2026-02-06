@@ -747,7 +747,7 @@ def verify_magic_link(token):
     return user
 
 # ================= COUNTDOWN & UNLOCK LOGIC =================
-UNLOCK_TIME = datetime(2026, 2, 5, 20, 0, 0, tzinfo=timezone.utc)
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, 0, tzinfo=timezone.utc)
 
 def is_unlocked():
     """Check if matches are unlocked"""
