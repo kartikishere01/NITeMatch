@@ -10,7 +10,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import time
-import re
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -187,247 +186,165 @@ hr {{
 
 @keyframes heartbeat {{
     0%, 100% {{ transform: scale(1); }}
-    10%, 30% {{ transform: scale(1.15); }}
-    20%, 40% {{ transform: scale(1); }}
+    25% {{ transform: scale(1.15); }}
+    50% {{ transform: scale(1); }}
 }}
 
-.heart-beat {{
-    animation: heartbeat 1.5s ease-in-out infinite;
-    display: inline-block;
+.match-header {{
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 1.5rem 0 1rem;
+    background: linear-gradient(90deg, #ff4fd8, #00ffe1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: heartbeat 1.5s ease-in-out;
 }}
 
-/* Enhanced form styling */
-.stTextInput input, .stTextArea textarea {{
-    background: rgba(255,255,255,0.05) !important;
-    border: 1px solid rgba(255,255,255,0.15) !important;
-    border-radius: 10px !important;
-    color: white !important;
-    transition: all 0.3s ease !important;
+.match-card {{
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.3s ease;
+}}
+.match-card:hover {{
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,79,216,0.4);
+    transform: translateY(-2px);
 }}
 
-.stTextInput input:focus, .stTextArea textarea:focus {{
-    background: rgba(255,255,255,0.08) !important;
-    border: 1px solid rgba(0,255,225,0.4) !important;
-    box-shadow: 0 0 15px rgba(0,255,225,0.2) !important;
+.section-header {{
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 1.5rem 0 1rem;
+    padding-left: 0.5rem;
+    border-left: 3px solid #ff4fd8;
 }}
 
-/* Radio button enhancement */
-.stRadio > label {{
-    font-weight: 600 !important;
-    margin-bottom: 0.5rem !important;
-}}
-
-/* Info box styling */
 .info-box {{
-    background: rgba(59,130,246,0.15);
-    border-left: 4px solid #3b82f6;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 1rem 0;
-}}
-
-.warning-box {{
-    background: rgba(251,191,36,0.15);
-    border-left: 4px solid #fbbf24;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 1rem 0;
+    background: rgba(0,255,225,0.1);
+    border: 1px solid rgba(0,255,225,0.3);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
 }}
 
 .success-box {{
     background: rgba(34,197,94,0.15);
-    border-left: 4px solid #22c55e;
-    padding: 1rem;
-    border-radius: 8px;
-    margin: 1rem 0;
-}}
-
-/* Section headers */
-.section-header {{
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin: 1.5rem 0 1rem 0;
-    background: linear-gradient(90deg, #ff4fd8, #00ffe1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}}
-
-/* Chat-specific styles */
-.chat-container {{
-    background: rgba(12,12,22,0.95);
-    border-radius: 20px;
-    padding: 20px;
-    margin: 20px 0;
-    border: 1px solid rgba(255,255,255,0.1);
-    max-height: 500px;
-    overflow-y: auto;
-}}
-
-.chat-message {{
-    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(34,197,94,0.3);
     border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+}}
+
+/* Chat interface styles */
+.chat-message {{
     padding: 12px 16px;
+    border-radius: 16px;
     margin: 8px 0;
-    border-left: 3px solid rgba(0,255,225,0.5);
-}}
-
-.chat-message.sent {{
-    background: linear-gradient(135deg, rgba(255,79,216,0.2), rgba(0,255,225,0.15));
-    border-left: 3px solid rgba(255,79,216,0.7);
-    margin-left: 20px;
-}}
-
-.chat-message.received {{
-    background: rgba(139,92,246,0.15);
-    border-left: 3px solid rgba(139,92,246,0.7);
-    margin-right: 20px;
-}}
-
-.chat-sender {{
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #00ffe1;
-    margin-bottom: 4px;
-}}
-
-.chat-text {{
-    font-size: 0.95rem;
-    line-height: 1.4;
+    max-width: 75%;
     word-wrap: break-word;
 }}
 
-.chat-time {{
+.chat-sent {{
+    background: linear-gradient(135deg, rgba(255,79,216,0.25), rgba(236,72,153,0.25));
+    margin-left: auto;
+    border: 1px solid rgba(255,79,216,0.3);
+}}
+
+.chat-received {{
+    background: rgba(255,255,255,0.08);
+    margin-right: auto;
+    border: 1px solid rgba(255,255,255,0.15);
+}}
+
+.chat-timestamp {{
     font-size: 0.75rem;
     opacity: 0.6;
     margin-top: 4px;
-    text-align: right;
-}}
-
-.chat-input-container {{
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
-    padding: 12px;
-    margin-top: 12px;
-    border: 1px solid rgba(255,255,255,0.1);
 }}
 
 .unread-badge {{
-    background: linear-gradient(135deg, #ff4fd8, #ec4899);
+    background: #ff4fd8;
     color: white;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 4px 10px;
+    padding: 2px 8px;
     border-radius: 12px;
-    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 700;
     margin-left: 8px;
-    animation: pulse 2s ease-in-out infinite;
 }}
 
-/* Scrollbar styling for chat */
-.chat-container::-webkit-scrollbar {{
-    width: 8px;
-}}
-
-.chat-container::-webkit-scrollbar-track {{
-    background: rgba(255,255,255,0.05);
-    border-radius: 10px;
-}}
-
-.chat-container::-webkit-scrollbar-thumb {{
-    background: linear-gradient(135deg, #ff4fd8, #00ffe1);
-    border-radius: 10px;
-}}
-
-.chat-container::-webkit-scrollbar-thumb:hover {{
-    background: linear-gradient(135deg, #ec4899, #00d4b8);
+.chat-input-container {{
+    position: sticky;
+    bottom: 0;
+    background: rgba(12,12,22,0.95);
+    backdrop-filter: blur(10px);
+    padding: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin: 0 -28px -28px;
+    border-radius: 0 0 24px 24px;
 }}
 </style>
 """, unsafe_allow_html=True)
 
-# ================= FIREBASE INIT =================
-@st.cache_resource
-def init_firebase():
-    """Initialize Firebase with caching to prevent multiple initializations"""
-    if not firebase_admin._apps:
-        try:
-            cred = credentials.Certificate(dict(st.secrets["firebase"]))
-            firebase_admin.initialize_app(cred)
-        except Exception as e:
-            st.error(f"Failed to initialize Firebase: {str(e)}")
-            st.stop()
-    return firestore.client()
+# ================= FIREBASE INITIALIZATION =================
+if not firebase_admin._apps:
+    cred = credentials.Certificate({
+        "type": "service_account",
+        "project_id": st.secrets["firebase"]["project_id"],
+        "private_key_id": st.secrets["firebase"]["private_key_id"],
+        "private_key": st.secrets["firebase"]["private_key"],
+        "client_email": st.secrets["firebase"]["client_email"],
+        "client_id": st.secrets["firebase"]["client_id"],
+        "auth_uri": st.secrets["firebase"]["auth_uri"],
+        "token_uri": st.secrets["firebase"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"]
+    })
+    firebase_admin.initialize_app(cred)
 
-db = init_firebase()
+db = firestore.client()
 
-# ================= TIME =================
-IST = timezone(timedelta(hours=5, minutes=30))
+# ================= SESSION STATE INITIALIZATION =================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
+if "active_chat" not in st.session_state:
+    st.session_state.active_chat = None
+if "all_users_cache" not in st.session_state:
+    st.session_state.all_users_cache = None
+if "all_users_cache_time" not in st.session_state:
+    st.session_state.all_users_cache_time = None
+if "computed_matches_cache" not in st.session_state:
+    st.session_state.computed_matches_cache = {}
+if "chat_messages_cache" not in st.session_state:
+    st.session_state.chat_messages_cache = {}
+if "unread_counts_cache" not in st.session_state:
+    st.session_state.unread_counts_cache = {}
 
-# 🔴 UNLOCK DATE - Set to Feb 6, 2026, 8 PM IST
-UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, tzinfo=IST)
-
-MATCH_THRESHOLD = 0.50
-SCALE = ["No", "Slightly", "Maybe", "Mostly", "Yes", "Strongly yes"]
-
-# Match limits based on gender
-FEMALE_MATCH_LIMIT = 10  
-MALE_MATCH_LIMIT = 4      
-
-# ================= EMAIL CONFIG =================
+# ================= CONFIGURATION =================
 SMTP_SERVER = st.secrets.get("smtp", {}).get("server", "smtp.gmail.com")
 SMTP_PORT = st.secrets.get("smtp", {}).get("port", 587)
 SMTP_EMAIL = st.secrets.get("smtp", {}).get("email", "")
 SMTP_PASSWORD = st.secrets.get("smtp", {}).get("password", "")
-BASE_URL = st.secrets.get("app", {}).get("base_url", "http://localhost:8501")
+BASE_URL = st.secrets.get("app", {}).get("base_url", "https://nitematch.streamlit.app")
 
-# ================= INPUT VALIDATION =================
-def sanitize_text(text, max_length=200):
-    """Sanitize user input to prevent injection attacks"""
-    if not text:
-        return ""
-    # Remove any HTML tags
-    text = re.sub(r'<[^>]*>', '', str(text))
-    # Limit length
-    text = text[:max_length]
-    return text.strip()
+# ================= HELPER FUNCTIONS =================
+def hash_email(email):
+    """Hash email for privacy"""
+    return hashlib.sha256(email.lower().strip().encode()).hexdigest()
 
-def validate_email(email):
-    """Validate email format"""
-    if not email:
-        return False
-    email = email.strip().lower()
-    # Check if it ends with @nitj.ac.in
-    if not email.endswith("@nitj.ac.in"):
-        return False
-    # Basic email format validation
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@nitj\.ac\.in$'
-    return bool(re.match(email_pattern, email))
-
-def validate_instagram(handle):
-    """Validate Instagram handle format"""
-    if not handle:
-        return True  # Empty is valid
-    handle = handle.strip()
-    # Remove @ if present
-    handle = handle.lstrip('@')
-    # Instagram username rules: 1-30 chars, alphanumeric, dots, underscores
-    pattern = r'^[a-zA-Z0-9._]{1,30}$'
-    return bool(re.match(pattern, handle))
-
-# ================= HELPERS =================
-def scale_slider(label):
-    val = st.select_slider(label, options=SCALE)
-    return SCALE.index(val) + 1
-
-def bin_map(x, a, b):
-    return 0 if x == a else 1
-
-def normalize(v):
-    v = np.array(v, dtype=float)
-    norm = np.linalg.norm(v)
-    return v if norm == 0 else v / norm
+def bin_map(value, opt1, opt2):
+    """Map binary question to 0 or 1"""
+    return 0 if value == opt1 else 1
 
 def pad_to_length(arr, target_length, fill_value=0):
-    """Pad or truncate array to target length"""
+    """
+    CRITICAL FIX: Pad or truncate array to target length.
+    This prevents dimension mismatch errors.
+    """
     arr = list(arr)
     if len(arr) < target_length:
         arr.extend([fill_value] * (target_length - len(arr)))
@@ -435,106 +352,256 @@ def pad_to_length(arr, target_length, fill_value=0):
         arr = arr[:target_length]
     return arr
 
-def cosine(a, b):
-    """Calculate cosine similarity with error handling"""
-    try:
-        # Ensure both arrays have the same length
-        max_len = max(len(a), len(b))
-        a = pad_to_length(a, max_len)
-        b = pad_to_length(b, max_len)
-        
-        if sum(a) == 0 or sum(b) == 0:
-            return 0.0
-        return float(cosine_similarity([a], [b])[0][0])
-    except Exception as e:
-        # Log error if needed
-        return 0.0
+# ================= OPTIMIZED FIRESTORE FUNCTIONS =================
 
-def hash_email(email):
-    """Hash email with consistent formatting"""
-    return hashlib.sha256(email.lower().strip().encode()).hexdigest()
-
-@st.cache_data(ttl=60)
 def fetch_users():
-    """Fetch users with caching to reduce database calls"""
-    try:
-        return [
-            doc.to_dict() | {"_id": doc.id}
-            for doc in db.collection("users").stream()
-        ]
-    except Exception as e:
-        st.error(f"Error fetching users: {str(e)}")
-        return []
-
-def generate_magic_token():
-    """Generate a secure random token for magic links"""
-    return secrets.token_urlsafe(32)
-
-def create_magic_link(email_hash, email=None):
-    """Create a magic link token and store in database"""
-    try:
-        token = generate_magic_token()
-        expiry = datetime.now(IST) + timedelta(hours=24)
-        
-        token_data = {
-            "email_hash": email_hash,
-            "token": token,
-            "expires_at": expiry,
-            "created_at": firestore.SERVER_TIMESTAMP
-        }
-        
-        if email:
-            token_data["email"] = email
-        
-        db.collection("magic_tokens").document(token).set(token_data)
-        return token
-    except Exception as e:
-        st.error(f"Error creating magic link: {str(e)}")
-        return None
-
-def verify_magic_token(token):
-    """Verify magic link token and return email_hash if valid"""
-    try:
-        if not token:
-            return None
-            
-        doc = db.collection("magic_tokens").document(token).get()
-        if not doc.exists:
-            return None
-        
+    """Fetch all users with caching"""
+    if st.session_state.all_users_cache is not None:
+        return st.session_state.all_users_cache
+    
+    users_ref = db.collection("users")
+    docs = users_ref.stream()
+    
+    users = []
+    for doc in docs:
         data = doc.to_dict()
-        
-        # Handle timezone-aware comparison
-        expires_at = data.get("expires_at")
-        if not expires_at:
-            return None
-            
-        # Ensure expires_at has timezone info
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=IST)
-        
-        if expires_at < datetime.now(IST):
-            # Clean up expired token
-            try:
-                db.collection("magic_tokens").document(token).delete()
-            except:
-                pass
-            return None
-        
-        return data.get("email_hash")
-    except Exception as e:
-        # Log error if needed
+        data["id"] = doc.id
+        users.append(data)
+    
+    st.session_state.all_users_cache = users
+    st.session_state.all_users_cache_time = datetime.now(timezone.utc)
+    
+    return users
+
+def invalidate_user_cache():
+    """Invalidate user cache"""
+    st.session_state.all_users_cache = None
+    st.session_state.all_users_cache_time = None
+    st.session_state.computed_matches_cache = {}
+
+def fetch_user_by_email_hash(email_hash):
+    """Fetch user by email hash using indexed query"""
+    users_ref = db.collection("users")
+    query = users_ref.where("email_hash", "==", email_hash).limit(1)
+    docs = list(query.stream())
+    
+    if not docs:
         return None
+    
+    data = docs[0].to_dict()
+    data["id"] = docs[0].id
+    return data
+
+def fetch_user_by_email_hash_and_alias(email_hash, alias):
+    """Fetch user by email hash and alias using compound query"""
+    users_ref = db.collection("users")
+    query = users_ref.where("email_hash", "==", email_hash).where("alias", "==", alias).limit(1)
+    docs = list(query.stream())
+    
+    if not docs:
+        return None
+    
+    data = docs[0].to_dict()
+    data["id"] = docs[0].id
+    return data
+
+def compute_matches(user, all_users):
+    """
+    FIXED: Compute matches with lenient validation (auto-fixes data).
+    This prevents the "profile data incomplete" error.
+    """
+    user_id = user.get("id")
+    
+    # Check cache first
+    if user_id in st.session_state.computed_matches_cache:
+        return st.session_state.computed_matches_cache[user_id]
+    
+    # LENIENT FIX: Just check if answers exist, don't reject
+    if "answers" not in user or "psych" not in user["answers"] or "interest" not in user["answers"]:
+        st.session_state.computed_matches_cache[user_id] = []
+        return []
+    
+    user_gender = user.get("gender")
+    
+    # LENIENT FIX: Auto-pad to expected lengths instead of rejecting
+    user_psych_raw = user["answers"].get("psych", [])
+    user_interest_raw = user["answers"].get("interest", [])
+    
+    user_psych = pad_to_length(user_psych_raw, 10, 3)  # Fill with middle value
+    user_interest = pad_to_length(user_interest_raw, 5, 0)
+    
+    # Filter opposite gender
+    opposite_gender = "Female" if user_gender == "Male" else "Male"
+    candidates = [u for u in all_users if u.get("gender") == opposite_gender and u.get("id") != user_id]
+    
+    if not candidates:
+        st.session_state.computed_matches_cache[user_id] = []
+        return []
+    
+    # Calculate similarity scores
+    scores = []
+    for candidate in candidates:
+        try:
+            # LENIENT FIX: Skip validation, just check if data exists
+            if "answers" not in candidate or "psych" not in candidate["answers"] or "interest" not in candidate["answers"]:
+                continue
+            
+            # LENIENT FIX: Auto-pad candidate data too
+            cand_psych_raw = candidate["answers"].get("psych", [])
+            cand_interest_raw = candidate["answers"].get("interest", [])
+            
+            cand_psych = pad_to_length(cand_psych_raw, 10, 3)
+            cand_interest = pad_to_length(cand_interest_raw, 5, 0)
+            
+            # Compute cosine similarity
+            vec_user = np.array(user_psych + user_interest, dtype=float).reshape(1, -1)
+            vec_cand = np.array(cand_psych + cand_interest, dtype=float).reshape(1, -1)
+            
+            score = cosine_similarity(vec_user, vec_cand)[0][0]
+            scores.append((candidate, score))
+            
+        except Exception as e:
+            # Silently skip problematic candidates
+            continue
+    
+    scores.sort(key=lambda x: x[1], reverse=True)
+    
+    # Apply gender-based limits
+    if user_gender == "Male":
+        top_matches = scores[:3]
+    else:
+        top_matches = scores[:5]
+    
+    matches = [{"user": m[0], "score": m[1]} for m in top_matches]
+    
+    st.session_state.computed_matches_cache[user_id] = matches
+    
+    return matches
+
+def get_or_create_chat(user1_id, user2_id):
+    """Get or create chat with caching"""
+    chat_id = "_".join(sorted([user1_id, user2_id]))
+    
+    cache_key = f"chat_exists_{chat_id}"
+    if cache_key in st.session_state:
+        return chat_id
+    
+    chat_ref = db.collection("chats").document(chat_id)
+    chat_doc = chat_ref.get()
+    
+    if not chat_doc.exists:
+        chat_ref.set({
+            "participants": [user1_id, user2_id],
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "last_message_at": firestore.SERVER_TIMESTAMP
+        })
+    
+    st.session_state[cache_key] = True
+    
+    return chat_id
+
+def fetch_messages(chat_id, force_refresh=False):
+    """Fetch messages with caching"""
+    if not force_refresh and chat_id in st.session_state.chat_messages_cache:
+        return st.session_state.chat_messages_cache[chat_id]
+    
+    messages_ref = db.collection("chats").document(chat_id).collection("messages")
+    messages_query = messages_ref.order_by("timestamp", direction=firestore.Query.ASCENDING)
+    
+    messages = []
+    for doc in messages_query.stream():
+        data = doc.to_dict()
+        data["id"] = doc.id
+        messages.append(data)
+    
+    st.session_state.chat_messages_cache[chat_id] = messages
+    
+    return messages
+
+def send_message(chat_id, sender_id, text):
+    """Send message and invalidate cache"""
+    message_data = {
+        "sender_id": sender_id,
+        "text": text,
+        "timestamp": firestore.SERVER_TIMESTAMP,
+        "read": False
+    }
+    
+    db.collection("chats").document(chat_id).collection("messages").add(message_data)
+    
+    db.collection("chats").document(chat_id).update({
+        "last_message_at": firestore.SERVER_TIMESTAMP
+    })
+    
+    if chat_id in st.session_state.chat_messages_cache:
+        del st.session_state.chat_messages_cache[chat_id]
+    
+    st.session_state.unread_counts_cache = {}
+
+def get_unread_count(chat_id, current_user_id):
+    """Get count of unread messages for current user (no composite index needed)"""
+    cache_key = f"{chat_id}_{current_user_id}"
+    
+    if cache_key in st.session_state.unread_counts_cache:
+        return st.session_state.unread_counts_cache[cache_key]
+    
+    messages_ref = db.collection("chats").document(chat_id).collection("messages")
+    
+    # Query only unread messages (single-field index, usually auto-created)
+    unread_query = messages_ref.where("read", "==", False)
+    
+    # Filter out current user's messages in Python (not in Firestore)
+    unread_count = 0
+    for msg in unread_query.stream():
+        msg_data = msg.to_dict()
+        if msg_data.get("sender_id") != current_user_id:
+            unread_count += 1
+    
+    st.session_state.unread_counts_cache[cache_key] = unread_count
+    
+    return unread_count
+
+def mark_messages_read(chat_id, current_user_id):
+    """Mark messages as read in batch (no composite index needed)"""
+    messages_ref = db.collection("chats").document(chat_id).collection("messages")
+    
+    # Query only unread messages (single-field index)
+    unread_query = messages_ref.where("read", "==", False)
+    
+    batch = db.batch()
+    for doc in unread_query.stream():
+        # Filter out current user's messages in Python
+        msg_data = doc.to_dict()
+        if msg_data.get("sender_id") != current_user_id:
+            batch.update(doc.reference, {"read": True})
+    
+    batch.commit()
+    
+    cache_key = f"{chat_id}_{current_user_id}"
+    if cache_key in st.session_state.unread_counts_cache:
+        del st.session_state.unread_counts_cache[cache_key]
+
+# ================= MAGIC LINK FUNCTIONS =================
+def create_magic_link(email_hash, email):
+    """Generate a secure token and store in Firestore"""
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.now(timezone.utc) + timedelta(hours=24)
+    
+    db.collection("magic_links").document(token).set({
+        "email_hash": email_hash,
+        "email": email,
+        "created_at": firestore.SERVER_TIMESTAMP,
+        "expires_at": expiry,
+        "used": False
+    })
+    
+    return token
 
 def send_magic_link(email, token):
-    """Send magic link to user's email with error handling"""
+    """Send magic link via email using SMTP"""
     
     if not SMTP_EMAIL or not SMTP_PASSWORD:
-        st.error("⚠️ Email not configured. Please contact administrator.")
-        return False
-    
-    if not token:
-        st.error("⚠️ Failed to generate login link.")
+        st.error("⚠️ Email not configured. Please set up SMTP credentials.")
         return False
     
     try:
@@ -591,715 +658,298 @@ def send_magic_link(email, token):
         
         msg.attach(MIMEText(html, 'html'))
         
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.send_message(msg)
         
         return True
         
-    except smtplib.SMTPAuthenticationError:
-        st.error("⚠️ Email authentication failed. Please contact administrator.")
-        return False
-    except smtplib.SMTPException as e:
-        st.error(f"⚠️ Email service error. Please try again later.")
-        return False
     except Exception as e:
-        st.error(f"⚠️ Failed to send email. Please try again.")
+        st.error(f"Email error: {str(e)}")
         return False
 
-def compute_matches(current_user, all_users):
-    """Compute compatibility scores and return matches above threshold"""
-    if not current_user or not all_users:
-        return []
-        
-    matches = []
-    opposite_gender = "Female" if current_user.get("gender") == "Male" else "Male"
+def verify_magic_link(token):
+    """Verify magic link token"""
+    doc_ref = db.collection("magic_links").document(token)
+    doc = doc_ref.get()
     
-    # Validate current user has answers
-    if "answers" not in current_user or "psych" not in current_user.get("answers", {}) or "interest" not in current_user.get("answers", {}):
-        return []
-    
-    # Expected lengths
-    PSYCH_LENGTH = 10
-    INTEREST_LENGTH = 5
-    
-    # Pad current user's answers to expected lengths
-    current_psych_raw = current_user["answers"].get("psych", [])
-    current_interest_raw = current_user["answers"].get("interest", [])
-    
-    current_psych_raw = pad_to_length(current_psych_raw, PSYCH_LENGTH, 3)
-    current_interest_raw = pad_to_length(current_interest_raw, INTEREST_LENGTH, 0)
-    
-    current_psych = normalize(current_psych_raw)
-    current_interest = normalize(current_interest_raw)
-    
-    for user in all_users:
-        # Skip self
-        if user.get("_id") == current_user.get("_id"):
-            continue
-            
-        # Check gender
-        if user.get("gender") != opposite_gender:
-            continue
-        
-        # Validate user has answers
-        if "answers" not in user or "psych" not in user.get("answers", {}) or "interest" not in user.get("answers", {}):
-            continue
-        
-        try:
-            # Pad user's answers to expected lengths
-            user_psych_raw = user["answers"].get("psych", [])
-            user_interest_raw = user["answers"].get("interest", [])
-            
-            user_psych_raw = pad_to_length(user_psych_raw, PSYCH_LENGTH, 3)
-            user_interest_raw = pad_to_length(user_interest_raw, INTEREST_LENGTH, 0)
-            
-            user_psych = normalize(user_psych_raw)
-            user_interest = normalize(user_interest_raw)
-            
-            psych_score = cosine(current_psych, user_psych)
-            interest_score = cosine(current_interest, user_interest)
-            
-            combined = 0.7 * psych_score + 0.3 * interest_score
-            
-            if combined >= MATCH_THRESHOLD:
-                matches.append({
-                    "user": user,
-                    "score": combined,
-                    "psych_score": psych_score,
-                    "interest_score": interest_score
-                })
-        except Exception as e:
-            # Skip this user if there's an error
-            continue
-    
-    # Sort by score (highest first)
-    matches = sorted(matches, key=lambda x: x["score"], reverse=True)
-    
-    # Apply gender-based match limits
-    if current_user.get("gender") == "Female":
-        matches = matches[:FEMALE_MATCH_LIMIT]
-    else:
-        matches = matches[:MALE_MATCH_LIMIT]
-    
-    return matches
-
-def show_compatibility_details(current_user, matched_user):
-    """Display detailed compatibility breakdown"""
-    
-    st.markdown("### 🔍 Compatibility Breakdown")
-    
-    # Expected lengths
-    PSYCH_LENGTH = 10
-    INTEREST_LENGTH = 5
-    
-    try:
-        # Validate and pad current user's answers
-        current_psych_raw = current_user.get("answers", {}).get("psych", [])
-        current_interest_raw = current_user.get("answers", {}).get("interest", [])
-        
-        current_psych_raw = pad_to_length(current_psych_raw, PSYCH_LENGTH, 3)
-        current_interest_raw = pad_to_length(current_interest_raw, INTEREST_LENGTH, 0)
-        
-        current_psych = normalize(current_psych_raw)
-        current_interest = normalize(current_interest_raw)
-        
-        # Validate and pad matched user's answers
-        matched_psych_raw = matched_user.get("answers", {}).get("psych", [])
-        matched_interest_raw = matched_user.get("answers", {}).get("interest", [])
-        
-        matched_psych_raw = pad_to_length(matched_psych_raw, PSYCH_LENGTH, 3)
-        matched_interest_raw = pad_to_length(matched_interest_raw, INTEREST_LENGTH, 0)
-        
-        matched_psych = normalize(matched_psych_raw)
-        matched_interest = normalize(matched_interest_raw)
-        
-        psych_score = cosine(current_psych, matched_psych) * 100
-        interest_score = cosine(current_interest, matched_interest) * 100
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("🧠 Psychological", f"{psych_score:.0f}%")
-        with col2:
-            st.metric("🎵 Interests", f"{interest_score:.0f}%")
-    except Exception as e:
-        st.warning("⚠️ Unable to display detailed compatibility breakdown")
-
-# ================= CHAT FUNCTIONS =================
-def get_chat_id(user1_id, user2_id):
-    """Generate a consistent chat ID for two users"""
-    if not user1_id or not user2_id:
+    if not doc.exists:
         return None
-    return "_".join(sorted([str(user1_id), str(user2_id)]))
+    
+    data = doc.to_dict()
+    
+    if data.get("used"):
+        return None
+    
+    expires_at = data.get("expires_at")
+    if expires_at and datetime.now(timezone.utc) > expires_at:
+        return None
+    
+    doc_ref.update({"used": True})
+    
+    user = fetch_user_by_email_hash(data.get("email_hash"))
+    
+    return user
 
-def send_message(chat_id, sender_id, sender_alias, message_text):
-    """Send a message in a chat"""
-    # Validate inputs
-    if not chat_id or not sender_id or not sender_alias or not message_text:
-        return False
-        
-    message_text = sanitize_text(message_text, max_length=500)
-    if not message_text.strip():
-        return False
-    
-    try:
-        message_data = {
-            "sender_id": str(sender_id),
-            "sender_alias": sanitize_text(sender_alias, max_length=50),
-            "message": message_text,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "read": False
-        }
-        
-        db.collection("chats").document(chat_id).collection("messages").add(message_data)
-        
-        # Update chat metadata
-        chat_ref = db.collection("chats").document(chat_id)
-        chat_doc = chat_ref.get()
-        
-        if not chat_doc.exists:
-            chat_ref.set({
-                "participants": [str(sender_id)],
-                "last_message": message_text[:100],  # Truncate for metadata
-                "last_message_time": firestore.SERVER_TIMESTAMP,
-                "created_at": firestore.SERVER_TIMESTAMP
-            })
-        else:
-            chat_ref.update({
-                "last_message": message_text[:100],
-                "last_message_time": firestore.SERVER_TIMESTAMP
-            })
-        
-        return True
-    except Exception as e:
-        return False
+# ================= COUNTDOWN & UNLOCK LOGIC =================
+# FIXED: Use IST timezone like the working old code
+IST = timezone(timedelta(hours=5, minutes=30))
 
-def get_messages(chat_id, limit=50):
-    """Get messages from a chat with error handling"""
-    if not chat_id:
-        return []
-        
-    messages = []
-    try:
-        docs = db.collection("chats").document(chat_id).collection("messages")\
-                .order_by("timestamp", direction=firestore.Query.ASCENDING)\
-                .limit(limit).stream()
-        
-        for doc in docs:
-            try:
-                msg_data = doc.to_dict()
-                msg_data["_id"] = doc.id
-                
-                # Only include messages with required fields
-                if msg_data.get("message") and msg_data.get("sender_id"):
-                    messages.append(msg_data)
-            except:
-                continue
-    except Exception as e:
-        pass
-    
-    return messages
+# OPTION 1: For immediate unlock (testing)
+# UNLOCK_TIME = datetime(2026, 2, 1, 0, 0, 0, tzinfo=IST)
 
-def mark_messages_as_read(chat_id, current_user_id):
-    """Mark all messages from other user as read"""
-    if not chat_id or not current_user_id:
-        return
-        
-    try:
-        # Get unread messages
-        messages_ref = db.collection("chats").document(chat_id).collection("messages")
-        
-        # Query messages that are not from current user and are unread
-        unread_messages = messages_ref.where("read", "==", False).stream()
-        
-        batch = db.batch()
-        count = 0
-        
-        for msg in unread_messages:
-            msg_data = msg.to_dict()
-            # Only mark as read if it's not from the current user
-            if msg_data.get("sender_id") != str(current_user_id):
-                batch.update(msg.reference, {"read": True})
-                count += 1
-                
-                # Firestore batch limit is 500
-                if count >= 500:
-                    batch.commit()
-                    batch = db.batch()
-                    count = 0
-        
-        if count > 0:
-            batch.commit()
-            
-    except Exception as e:
-        pass
+# OPTION 2: For proper Feb 6, 8 PM IST unlock
+UNLOCK_TIME = datetime(2026, 2, 6, 20, 0, 0, tzinfo=IST)
 
-def get_unread_count(chat_id, current_user_id):
-    """Get count of unread messages for current user"""
-    if not chat_id or not current_user_id:
-        return 0
-        
-    try:
-        messages_ref = db.collection("chats").document(chat_id).collection("messages")
-        unread_messages = messages_ref.where("read", "==", False).stream()
-        
-        count = 0
-        for msg in unread_messages:
-            try:
-                msg_data = msg.to_dict()
-                # Only count messages not from current user
-                if msg_data.get("sender_id") != str(current_user_id) and msg_data.get("message"):
-                    count += 1
-            except:
-                continue
-        
-        return count
-    except Exception as e:
-        return 0
+def is_unlocked():
+    """Check if matches are unlocked"""
+    return datetime.now(IST) >= UNLOCK_TIME
 
-def display_chat(current_user, matched_user):
-    """Display chat interface for a matched user"""
+def get_countdown():
+    """Get time remaining until unlock"""
+    now = datetime.now(IST)
+    if now >= UNLOCK_TIME:
+        return None
+    delta = UNLOCK_TIME - now
+    days = delta.days
+    hours, remainder = divmod(delta.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return {"days": days, "hours": hours, "minutes": minutes, "seconds": seconds}
+
+# ================= MAGIC LINK AUTHENTICATION =================
+query_params = st.query_params
+if "token" in query_params and not st.session_state.logged_in:
+    token = query_params["token"]
+    user = verify_magic_link(token)
     
-    chat_id = get_chat_id(current_user.get("_id"), matched_user.get("_id"))
-    
-    if not chat_id:
-        st.error("Unable to load chat")
-        return
-    
-    st.markdown(f"""
-    <div class="glass">
-        <div style="text-align:center;">
-            <div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">
-                💬 Chat with {sanitize_text(matched_user.get('alias', 'Unknown'), 50)}
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Messages container
-    messages = get_messages(chat_id)
-    
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    
-    if not messages:
-        st.markdown("""
-        <div style="text-align:center;padding:40px;opacity:0.7;">
-            <div style="font-size:2rem;margin-bottom:1rem;">💭</div>
-            <div>No messages yet. Start the conversation!</div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        for msg in messages:
-            # Skip messages without required fields
-            if not msg.get("message") or not msg.get("sender_id"):
-                continue
-                
-            is_sent = str(msg["sender_id"]) == str(current_user.get("_id"))
-            msg_class = "sent" if is_sent else "received"
-            
-            sender_name = "You" if is_sent else sanitize_text(msg.get("sender_alias", "Unknown"), 50)
-            
-            timestamp = ""
-            if msg.get("timestamp"):
-                try:
-                    dt = msg["timestamp"]
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
-                    dt = dt.astimezone(IST)
-                    timestamp = dt.strftime("%I:%M %p")
-                except:
-                    pass
-            
-            # Sanitize and escape message text
-            message_text = sanitize_text(msg.get("message", ""), 500)
-            message_text = message_text.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
-            
-            st.markdown(f"""
-            <div class="chat-message {msg_class}">
-                <div class="chat-sender">{sender_name}</div>
-                <div class="chat-text">{message_text}</div>
-                <div class="chat-time">{timestamp}</div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Mark messages as read
-    mark_messages_as_read(chat_id, current_user.get("_id"))
-    
-    # Message input
-    st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
-    
-    with st.form(key=f"chat_form_{chat_id}", clear_on_submit=True):
-        col1, col2 = st.columns([4, 1])
-        
-        with col1:
-            new_message = st.text_input(
-                "Message",
-                placeholder="Type your message...",
-                label_visibility="collapsed",
-                key=f"msg_input_{chat_id}",
-                max_chars=500
-            )
-        
-        with col2:
-            send_btn = st.form_submit_button("📤 Send", use_container_width=True)
-        
-        if send_btn and new_message and new_message.strip():
-            success = send_message(
-                chat_id,
-                current_user.get("_id"),
-                current_user.get("alias", "User"),
-                new_message.strip()
-            )
-            if success:
-                st.rerun()
-            else:
-                st.error("Failed to send message. Please try again.")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Refresh button with rate limiting
-    if st.button("🔄 Refresh Messages", key=f"refresh_{chat_id}"):
-        # Clear cache to force refresh
-        fetch_users.clear()
+    if user:
+        st.session_state.logged_in = True
+        st.session_state.current_user = user
+        st.success("✅ Login successful via magic link!")
+        st.query_params.clear()
         st.rerun()
-
-# ================= MAIN APP =================
-
-# Header
-st.markdown('<div class="title">💘 NITeMatch</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Find your perfect match at NIT Jalandhar</div>', unsafe_allow_html=True)
-
-# Get current time
-now = datetime.now(IST)
-
-# Check for magic link token in URL (only works after unlock time)
-params = st.query_params
-token = params.get("token", None)
-
-# Initialize session state with defaults
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
-if "active_chat" not in st.session_state:
-    st.session_state.active_chat = None
-if "view_mode" not in st.session_state:
-    st.session_state.view_mode = "matches"
-
-# Verify magic link token if present and after unlock time
-if token and not st.session_state.logged_in and now >= UNLOCK_TIME:
-    email_hash = verify_magic_token(token)
-    if email_hash:
-        users = fetch_users()
-        user = next((u for u in users if u.get("email_hash") == email_hash), None)
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.current_user = user
-            st.query_params.clear()
-            st.rerun()
-        else:
-            st.error("❌ User not found")
     else:
-        st.error("❌ Invalid or expired login link")
+        st.error("❌ Invalid or expired magic link")
+        st.query_params.clear()
 
-# ================= LOGGED IN STATE =================
+# ================= LOGGED-IN STATE: SHOW MATCHES & CHAT =================
 if st.session_state.logged_in and st.session_state.current_user:
     current_user = st.session_state.current_user
     
-    if now >= UNLOCK_TIME:
-        # Fetch users and compute matches
-        all_users = fetch_users()
-        matches = compute_matches(current_user, all_users)
-        apply_styles(has_matches=len(matches) > 0)
-        
-        st.markdown(f"""
-        <div class="glass">
-            <div style="text-align:center;">
-                <h2 style="margin-bottom:0.5rem;">Welcome back, {sanitize_text(current_user.get('alias', 'User'), 50)}! 👋</h2>
-                <p style="opacity:0.8;">Here are your compatibility results</p>
-            </div>
+    all_users = fetch_users()
+    matches = compute_matches(current_user, all_users)
+    
+    has_matches = len(matches) > 0
+    apply_styles(has_matches=has_matches)
+    
+    st.markdown(f"""
+    <div class="glass" style="text-align:center;">
+        <div class="title">💘 NITeMatch</div>
+        <div class="subtitle">Welcome back, {current_user.get('alias')}!</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.session_state.current_user = None
+        st.session_state.active_chat = None
+        st.session_state.all_users_cache = None
+        st.session_state.computed_matches_cache = {}
+        st.session_state.chat_messages_cache = {}
+        st.session_state.unread_counts_cache = {}
+        st.rerun()
+    
+    if not matches:
+        st.markdown("""
+        <div class="glass" style="text-align:center;">
+            <div style="font-size:3rem;margin-bottom:1rem;">😔</div>
+            <div style="font-size:1.3rem;font-weight:600;margin-bottom:0.5rem;">No matches found</div>
+            <div class="small-note">Try again later or check back for new registrations!</div>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Navigation buttons
-        col1, col2, col3 = st.columns([2, 2, 1])
-        
-        with col1:
-            if st.button("📋 View Matches", use_container_width=True, 
-                        type="primary" if st.session_state.view_mode == "matches" else "secondary"):
-                st.session_state.view_mode = "matches"
-                st.session_state.active_chat = None
-                st.rerun()
-        
-        with col2:
-            # Count total unread messages
-            total_unread = 0
-            for match in matches:
-                chat_id = get_chat_id(current_user.get("_id"), match["user"].get("_id"))
-                if chat_id:
-                    total_unread += get_unread_count(chat_id, current_user.get("_id"))
+    else:
+        if st.session_state.active_chat is None:
+            st.markdown(f"""
+            <div class="match-header">
+                🎉 Your Top {len(matches)} Match{"es" if len(matches) > 1 else ""}
+            </div>
+            """, unsafe_allow_html=True)
             
-            chat_label = f"💬 Messages"
-            if total_unread > 0:
-                chat_label += f" ({total_unread})"
-            
-            if st.button(chat_label, use_container_width=True,
-                        type="primary" if st.session_state.view_mode == "chat" else "secondary"):
-                st.session_state.view_mode = "chat"
-                st.rerun()
-        
-        with col3:
-            if st.button("🚪 Logout", use_container_width=True):
-                st.session_state.logged_in = False
-                st.session_state.current_user = None
-                st.session_state.active_chat = None
-                st.session_state.view_mode = "matches"
-                fetch_users.clear()  # Clear cache
-                st.rerun()
-        
-        st.markdown("---")
-        
-        # VIEW MODES
-        if st.session_state.view_mode == "matches":
-            # MATCHES VIEW
-            if matches:
-                st.markdown(f"""
-                <div class="success-box">
-                    <div style="font-size:1.3rem;font-weight:700;text-align:center;">
-                        <span class="heart-beat">💕</span> You have {len(matches)} compatible match{"es" if len(matches) > 1 else ""}! <span class="heart-beat">💕</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            for idx, match in enumerate(matches, 1):
+                match_user = match["user"]
+                score = match["score"]
                 
-                # Show match limit info
-                if current_user.get("gender") == "Female":
-                    st.markdown("""
-                    <div class="info-box">
-                        <div style="text-align:center;font-size:0.9rem;">
-                            ℹ️ Showing your top 10 most compatible matches
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown("""
-                    <div class="info-box">
-                        <div style="text-align:center;font-size:0.9rem;">
-                            ℹ️ Showing your top 4 most compatible matches
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                chat_id = get_or_create_chat(current_user["id"], match_user["id"])
+                unread = get_unread_count(chat_id, current_user["id"])
                 
-                for idx, match in enumerate(matches, 1):
-                    matched_user = match["user"]
-                    score = match["score"] * 100
-                    chat_id = get_chat_id(current_user.get("_id"), matched_user.get("_id"))
-                    unread = get_unread_count(chat_id, current_user.get("_id")) if chat_id else 0
-                    
+                with st.container():
                     st.markdown(f"""
-                    <div class="glass match-glow">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-                            <div style="font-size:1.4rem;font-weight:700;">
-                                Match #{idx}
+                    <div class="match-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-size:1.2rem;font-weight:700;">Match #{idx}: {match_user.get('alias')}</div>
+                                <div class="small-note">Compatibility: {score*100:.1f}%</div>
                             </div>
-                            <div style="font-size:1.8rem;font-weight:900;background:linear-gradient(90deg,#ff4fd8,#00ffe1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                                {score:.0f}%
-                            </div>
-                        </div>
-                        <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:16px;">
-                            <div style="font-size:1.5rem;font-weight:700;text-align:center;color:#00ffe1;">
-                                {sanitize_text(matched_user.get('alias', 'Unknown'), 50)}
+                            <div>
+                                {"<span class='unread-badge'>" + str(unread) + " new</span>" if unread > 0 else ""}
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # Show Instagram if shared
-                    if matched_user.get("share_instagram", False) and matched_user.get("instagram"):
-                        instagram_handle = sanitize_text(matched_user['instagram'].replace('@', ''), 30)
-                        if validate_instagram(instagram_handle):
-                            st.markdown(f"""
-                            <div style="background: rgba(255,255,255,0.05); padding: 14px; border-radius: 10px; margin-bottom: 12px; text-align:center;">
-                                <span style="font-size:1.2rem;">📸</span> <strong>Instagram:</strong> 
-                                <a href="https://instagram.com/{instagram_handle}" 
-                                target="_blank" style="color: #00ffe1; font-weight:600; text-decoration:none;">
-                                @{instagram_handle}
-                                </a>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    
-                    # Show message for matches
-                    if matched_user.get("match_message"):
-                        safe_message = sanitize_text(matched_user['match_message'], 200)
-                        safe_message = safe_message.replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+                    if match_user.get("match_message"):
                         st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, rgba(255,79,216,0.15), rgba(0,255,225,0.15)); padding: 18px; border-radius: 12px; margin-bottom: 12px; border-left: 4px solid #ff4fd8;">
-                            <div style="font-weight: 600; margin-bottom: 8px; color: #ff4fd8;">💬 Message from {sanitize_text(matched_user.get('alias', 'Unknown'), 50)}:</div>
-                            <div style="font-style: italic; opacity: 0.95; line-height: 1.5;">"{safe_message}"</div>
+                        <div style="margin-top:0.8rem;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;font-style:italic;">
+                            "{match_user['match_message']}"
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    if match_user.get("share_instagram") and match_user.get("instagram"):
+                        st.markdown(f"""
+                        <div style="margin-top:0.5rem;">
+                            📸 Instagram: <a href="https://instagram.com/{match_user['instagram'].replace('@','')}" 
+                               style="color:#00ffe1;text-decoration:none;" target="_blank">
+                               {match_user['instagram']}
+                            </a>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
-                    # Chat button
-                    chat_btn_label = f"💬 Chat with {sanitize_text(matched_user.get('alias', 'Unknown'), 30)}"
-                    if unread > 0:
-                        chat_btn_label += f" ({unread} new)"
-                    
-                    if st.button(chat_btn_label, key=f"chat_btn_{matched_user.get('_id')}", use_container_width=True):
-                        st.session_state.view_mode = "chat"
-                        st.session_state.active_chat = matched_user.get("_id")
+                    if st.button(f"💬 Chat with {match_user.get('alias')}", key=f"chat_{match_user['id']}"):
+                        st.session_state.active_chat = {
+                            "chat_id": chat_id,
+                            "match_user": match_user
+                        }
+                        mark_messages_read(chat_id, current_user["id"])
                         st.rerun()
                     
-                    show_compatibility_details(current_user, matched_user)
-                    st.markdown("---")
-            else:
-                st.markdown("""
-                <div class="info-box">
-                    <div style="text-align:center;">
-                        <div style="font-size:2rem;margin-bottom:1rem;">🔍</div>
-                        <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No matches found yet</div>
-                        <div style="opacity:0.8;">Don't worry! More people are joining. Check back later!</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
         
-        elif st.session_state.view_mode == "chat":
-            # CHAT VIEW
-            if not matches:
+        else:
+            active_chat = st.session_state.active_chat
+            chat_id = active_chat["chat_id"]
+            match_user = active_chat["match_user"]
+            
+            st.markdown(f"""
+            <div class="glass">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-size:1.3rem;font-weight:700;">💬 Chat with {match_user.get('alias')}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("⬅️ Back to Matches"):
+                st.session_state.active_chat = None
+                st.rerun()
+            
+            messages = fetch_messages(chat_id)
+            
+            st.markdown('<div class="glass" style="max-height:500px;overflow-y:auto;">', unsafe_allow_html=True)
+            
+            if not messages:
                 st.markdown("""
-                <div class="info-box">
-                    <div style="text-align:center;">
-                        <div style="font-size:2rem;margin-bottom:1rem;">💬</div>
-                        <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">No matches to chat with</div>
-                        <div style="opacity:0.8;">Find matches first to start chatting!</div>
-                    </div>
+                <div style="text-align:center;padding:3rem;opacity:0.6;">
+                    <div style="font-size:2rem;margin-bottom:1rem;">💬</div>
+                    <div>No messages yet. Start the conversation!</div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # If no active chat selected, show list of matches
-                if not st.session_state.active_chat:
-                    st.markdown("""
-                    <div class="glass">
-                        <div style="text-align:center;margin-bottom:1.5rem;">
-                            <div style="font-size:1.3rem;font-weight:700;">Select a match to chat with</div>
-                        </div>
+                for msg in messages:
+                    is_sent = msg["sender_id"] == current_user["id"]
+                    css_class = "chat-sent" if is_sent else "chat-received"
+                    
+                    ts = msg.get("timestamp")
+                    if ts:
+                        ts_str = ts.strftime("%b %d, %I:%M %p")
+                    else:
+                        ts_str = "Just now"
+                    
+                    st.markdown(f"""
+                    <div class="chat-message {css_class}">
+                        <div>{msg['text']}</div>
+                        <div class="chat-timestamp">{ts_str}</div>
                     </div>
                     """, unsafe_allow_html=True)
-                    
-                    for match in matches:
-                        matched_user = match["user"]
-                        chat_id = get_chat_id(current_user.get("_id"), matched_user.get("_id"))
-                        unread = get_unread_count(chat_id, current_user.get("_id")) if chat_id else 0
-                        
-                        btn_label = f"💬 {sanitize_text(matched_user.get('alias', 'Unknown'), 30)}"
-                        if unread > 0:
-                            btn_label += f" • {unread} new"
-                        
-                        if st.button(btn_label, key=f"select_chat_{matched_user.get('_id')}", use_container_width=True):
-                            st.session_state.active_chat = matched_user.get("_id")
-                            st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
+            with st.form("message_form", clear_on_submit=True):
+                msg_text = st.text_input("Type a message...", key="msg_input", label_visibility="collapsed")
+                send_btn = st.form_submit_button("📤 Send", use_container_width=True)
                 
-                # If active chat selected, show chat interface
-                else:
-                    matched_user = next((m["user"] for m in matches if m["user"].get("_id") == st.session_state.active_chat), None)
-                    
-                    if matched_user:
-                        # Back button
-                        if st.button("⬅️ Back to chat list", key="back_to_list"):
-                            st.session_state.active_chat = None
-                            st.rerun()
-                        
-                        display_chat(current_user, matched_user)
-                    else:
-                        st.session_state.active_chat = None
-                        st.rerun()
+                if send_btn and msg_text.strip():
+                    send_message(chat_id, current_user["id"], msg_text.strip())
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# ================= NOT LOGGED IN: SHOW COUNTDOWN OR LOGIN/REGISTER =================
+elif not is_unlocked():
+    apply_styles(is_countdown=True)
     
-    else:
-        # Logged in but before unlock time
-        apply_styles(is_countdown=True)
-        remaining = UNLOCK_TIME - now
-        
+    st.markdown('<div class="title">💘 NITeMatch</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Find Your Perfect Match at NIT Jalandhar</div>', unsafe_allow_html=True)
+    
+    countdown = get_countdown()
+    if countdown:
         st.markdown(f"""
         <div class="countdown-box">
-            <div class="countdown-title">Welcome back, {sanitize_text(current_user.get('alias', 'User'), 50)}! 👋</div>
-            <div style="font-size:1.2rem;margin-bottom:1rem;opacity:0.9;">Your matches will be revealed in:</div>
+            <div class="countdown-title">🎯 Matches Unlock In</div>
             <div class="countdown-timer">
-                {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
+                {countdown['days']}d {countdown['hours']}h {countdown['minutes']}m {countdown['seconds']}s
             </div>
-            <div class="unlock-date">📅 6th February 2026 • 8:00 PM IST</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="info-box">
-            <div style="text-align:center;">
-                <div style="font-size:1.1rem;margin-bottom:0.5rem;">✅ Your profile is saved!</div>
-                <div style="opacity:0.9;">Come back after the unlock time to see your matches</div>
+            <div class="unlock-date">📅 February 6, 2026 at 8:00 PM IST</div>
+            <div class="small-note" style="margin-top:1.5rem;">
+                Register now to be matched when the countdown ends!
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.current_user = None
-            fetch_users.clear()
-            st.rerun()
-
-# ================= NOT LOGGED IN - BEFORE UNLOCK =================
-elif now < UNLOCK_TIME:
-    apply_styles(is_countdown=True)
-    remaining = UNLOCK_TIME - now
-
-    st.markdown(f"""
-    <div class="countdown-box">
-        <div class="countdown-title">⏳ Matches Unlock In:</div>
-        <div class="countdown-timer">
-            {remaining.days}d {remaining.seconds//3600}h {(remaining.seconds//60)%60}m
-        </div>
-        <div class="unlock-date">📅 6th February 2026 • 8:00 PM IST</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    
     st.markdown("""
-    <div class="glass">
-        <div style="text-align:center;margin-bottom:1.5rem;">
-            <div style="font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;">Join NITeMatch Today!</div>
-            <div style="opacity:0.85;">Fill out the form below to find your perfect match</div>
+    <div class="glass" style="text-align:center;">
+        <div style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">
+            📝 Register Now
+        </div>
+        <div class="small-note">
+            Fill out the form below to get matched on Feb 6!
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    with st.form("pre_unlock_form"):
-        st.markdown('<div class="section-header">📝 Basic Information</div>', unsafe_allow_html=True)
+    
+    with st.form("registration_form"):
+        st.markdown('<div class="section-header">👤 Basic Information</div>', unsafe_allow_html=True)
         
-        alias = st.text_input("Choose an anonymous alias", placeholder="Your creative alias...", max_chars=50)
-
-        st.markdown("""
-        <div class="warning-box">
-            <strong>🔒 Privacy Notice:</strong> Your email is encrypted and used only for NIT Jalandhar verification. 
-            You'll receive a login link via email after the unlock time.
-        </div>
-        """, unsafe_allow_html=True)
-
-        email = st.text_input("Official NIT Jalandhar Email ID", placeholder="yourname@nitj.ac.in", max_chars=100)
-        
+        alias = st.text_input("Choose an Alias", 
+                              help="This is how your matches will see you",
+                              placeholder="e.g., StarGazer, MusicLover")
+        email = st.text_input("Your NIT Jalandhar Email", 
+                              placeholder="yourname@nitj.ac.in")
         gender = st.radio("I identify as", ["Male", "Female"], horizontal=True)
         
         st.markdown("---")
-        st.markdown('<div class="section-header">🧠 Psychological Questions</div>', unsafe_allow_html=True)
-        st.caption("Answer honestly for better matches ✨")
+        st.markdown('<div class="section-header">💭 About You</div>', unsafe_allow_html=True)
         
-        q1 = scale_slider("When overwhelmed, I prefer emotional closeness")
-        q2 = scale_slider("I feel emotionally safe opening up")
-        q3 = scale_slider("During conflict, I try to understand before reacting")
-        q4 = scale_slider("Emotional loyalty matters more than attention")
-        q5 = scale_slider("Relationships should help people grow")
-        q6 = st.radio("In difficult situations, I prefer", ["Handling things alone", "Leaning on someone"], horizontal=True)
-        q7 = st.radio("I process emotional pain by", ["Thinking quietly", "Talking it out"], horizontal=True)
-        q8 = scale_slider("I express care more through actions than words")
-        q9 = st.radio("If extremely busy but someone important needs you", 
+        q1 = st.slider("How introverted/extroverted are you?", 0, 10, 5, 
+                       help="0 = Very Introverted, 10 = Very Extroverted")
+        q2 = st.slider("How much do you value routine vs spontaneity?", 0, 10, 5,
+                       help="0 = Love Routine, 10 = Love Spontaneity")
+        q3 = st.slider("How important is alone time to you?", 0, 10, 5,
+                       help="0 = Not Important, 10 = Very Important")
+        q4 = st.slider("How much do you enjoy deep conversations?", 0, 10, 5,
+                       help="0 = Prefer Light Talk, 10 = Love Deep Talks")
+        q5 = st.slider("How organized are you?", 0, 10, 5,
+                       help="0 = Very Disorganized, 10 = Very Organized")
+        
+        st.markdown("---")
+        st.markdown('<div class="section-header">🤝 Relationship Style</div>', unsafe_allow_html=True)
+        
+        q6 = st.radio("When stressed, you prefer", 
+                      ["Handling things alone", "Leaning on someone"], horizontal=True)
+        q7 = st.radio("When making decisions, you rely more on", 
+                      ["Thinking quietly", "Talking it out"], horizontal=True)
+        q8 = st.slider("How much personal space do you need in relationships?", 0, 10, 5,
+                       help="0 = Very Little, 10 = A Lot")
+        q9 = st.radio("If your partner needs you during your busy time", 
                       ["Drop everything for them", "Ask to catch up later"], horizontal=True)
         q10 = st.radio("After a disagreement, you prefer", 
                        ["Talk it out immediately", "Take time to cool off"], horizontal=True)
@@ -1321,7 +971,7 @@ elif now < UNLOCK_TIME:
         st.markdown("---")
         st.markdown('<div class="section-header">📱 Optional Information</div>', unsafe_allow_html=True)
         
-        instagram = st.text_input("Instagram (optional)", placeholder="@username", max_chars=30)
+        instagram = st.text_input("Instagram (optional)", placeholder="@username")
         share_instagram = st.checkbox("✓ Allow my Instagram to be shared with matches")
         
         match_message = st.text_area("Optional message for matches", 
@@ -1335,80 +985,61 @@ elif now < UNLOCK_TIME:
         submitted = st.form_submit_button("🚀 Submit My Profile", use_container_width=True)
         
         if submitted:
-            # Validate inputs
-            alias = sanitize_text(alias, 50)
-            email = email.strip().lower() if email else ""
-            instagram = sanitize_text(instagram, 30)
-            match_message = sanitize_text(match_message, 200)
-            
-            if not alias or len(alias) < 2:
-                st.error("❌ Please enter a valid alias (at least 2 characters)")
-            elif not validate_email(email):
+            if not alias or not email:
+                st.error("❌ Please fill in all required fields")
+            elif not email.endswith("@nitj.ac.in"):
                 st.error("❌ Please use your official NIT Jalandhar email (@nitj.ac.in)")
             elif not confirm_nitj:
                 st.error("❌ Please confirm you are from NIT Jalandhar")
-            elif instagram and not validate_instagram(instagram):
-                st.error("❌ Invalid Instagram handle format")
             else:
-                try:
-                    # Process binary questions
-                    q6_val = bin_map(q6, "Handling things alone", "Leaning on someone")
-                    q7_val = bin_map(q7, "Thinking quietly", "Talking it out")
-                    q9_val = bin_map(q9, "Drop everything for them", "Ask to catch up later")
-                    q10_val = bin_map(q10, "Talk it out immediately", "Take time to cool off")
-                    
-                    # Map interest answers to indices
-                    music_era_val = ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(music_era)
-                    music_genre_val = ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(music_genre)
-                    travel_val = 0 if travel == "Beaches" else 1
-                    movies_val = ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(movies)
-                    hangout_val = ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", 
-                                   "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"].index(hangout)
-                    
-                    # Save to database
-                    email_hash_val = hash_email(email)
-                    
-                    # Check if user already exists
-                    existing_users = fetch_users()
-                    if any(u.get("email_hash") == email_hash_val for u in existing_users):
-                        st.error("❌ An account with this email already exists!")
-                    else:
-                        user_data = {
-                            "alias": alias,
-                            "email_hash": email_hash_val,
-                            "gender": gender,
-                            "answers": {
-                                "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8, q9_val, q10_val],
-                                "interest": [music_era_val, music_genre_val, travel_val, movies_val, hangout_val]
-                            },
-                            "instagram": instagram.lstrip('@') if instagram else "",
-                            "share_instagram": share_instagram if instagram else False,
-                            "match_message": match_message,
-                            "created_at": firestore.SERVER_TIMESTAMP
-                        }
-                        
-                        db.collection("users").add(user_data)
-                        fetch_users.clear()  # Clear cache
-                        
-                        st.success("✅ Registration successful!")
-                        st.balloons()
-                        
-                        st.markdown("""
-                        <div class="success-box" style="margin-top:1rem;">
-                            <div style="text-align:center;">
-                                <div style="font-size:1.2rem;margin-bottom:0.5rem;">🎉 You're all set!</div>
-                                <div style="margin-bottom:0.8rem;">Come back on <strong>Feb 6, 8 PM IST</strong> to login and see your matches</div>
-                                <div style="font-size:0.9rem;opacity:0.85;margin-top:1rem;padding:1rem;background:rgba(255,255,255,0.05);border-radius:8px;">
-                                    <strong>How to login after unlock:</strong><br>
-                                    Option 1: Use your <strong>alias as username</strong> and <strong>email as password</strong><br>
-                                    Option 2: Request a <strong>magic login link</strong> sent to your email
-                                </div>
-                            </div>
+                q6_val = bin_map(q6, "Handling things alone", "Leaning on someone")
+                q7_val = bin_map(q7, "Thinking quietly", "Talking it out")
+                q9_val = bin_map(q9, "Drop everything for them", "Ask to catch up later")
+                q10_val = bin_map(q10, "Talk it out immediately", "Take time to cool off")
+                
+                music_era_val = ["Before 2000", "2000–2009", "2010–2019", "2020–Present"].index(music_era)
+                music_genre_val = ["Pop", "Rock", "Hip-hop / Rap", "EDM", "Metal", "Classical", "Indie"].index(music_genre)
+                travel_val = 0 if travel == "Beaches" else 1
+                movies_val = ["Romance / Drama", "Thriller / Mystery", "Comedy", "Action / Sci-Fi"].index(movies)
+                hangout_val = ["Nescafe near Verka", "Nescafe near MBH", "Night Canteen", "Snackers", 
+                               "Dominos", "Yadav Canteen", "Rimjhim Area", "Campus Cafe"].index(hangout)
+                
+                email_hash_val = hash_email(email)
+                
+                user_data = {
+                    "alias": alias,
+                    "email_hash": email_hash_val,
+                    "gender": gender,
+                    "answers": {
+                        "psych": [q1, q2, q3, q4, q5, q6_val, q7_val, q8, q9_val, q10_val],
+                        "interest": [music_era_val, music_genre_val, travel_val, movies_val, hangout_val]
+                    },
+                    "instagram": instagram.strip() if instagram else "",
+                    "share_instagram": share_instagram,
+                    "match_message": match_message.strip() if match_message else "",
+                    "created_at": firestore.SERVER_TIMESTAMP
+                }
+                
+                db.collection("users").add(user_data)
+                
+                invalidate_user_cache()
+                
+                st.success("✅ Registration successful!")
+                st.balloons()
+                
+                st.markdown("""
+                <div class="success-box" style="margin-top:1rem;">
+                    <div style="text-align:center;">
+                        <div style="font-size:1.2rem;margin-bottom:0.5rem;">🎉 You're all set!</div>
+                        <div style="margin-bottom:0.8rem;">Come back on <strong>Feb 6, 8 PM IST</strong> to login and see your matches</div>
+                        <div style="font-size:0.9rem;opacity:0.85;margin-top:1rem;padding:1rem;background:rgba(255,255,255,0.05);border-radius:8px;">
+                            <strong>How to login after unlock:</strong><br>
+                            Option 1: Use your <strong>alias as username</strong> and <strong>email as password</strong><br>
+                            Option 2: Request a <strong>magic login link</strong> sent to your email
                         </div>
-                        """, unsafe_allow_html=True)
-                        
-                except Exception as e:
-                    st.error("❌ An error occurred. Please try again.")
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # ================= AFTER UNLOCK - LOGIN SECTION =================
 else:
@@ -1422,7 +1053,6 @@ else:
     </div>
     """, unsafe_allow_html=True)
     
-    # Create two columns for login options
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1436,35 +1066,26 @@ else:
         """, unsafe_allow_html=True)
         
         with st.form("direct_login_form"):
-            login_alias = st.text_input("Your Alias", placeholder="Enter your alias", max_chars=50)
-            login_email = st.text_input("Your Email", placeholder="yourname@nitj.ac.in", max_chars=100)
+            login_alias = st.text_input("Your Alias", placeholder="Enter your alias")
+            login_email = st.text_input("Your Email", placeholder="yourname@nitj.ac.in")
             direct_login_btn = st.form_submit_button("🚀 Login", use_container_width=True)
             
             if direct_login_btn:
-                login_alias = sanitize_text(login_alias, 50)
-                login_email = login_email.strip().lower() if login_email else ""
-                
                 if not login_alias or not login_email:
                     st.error("❌ Please fill in both fields")
-                elif not validate_email(login_email):
+                elif not login_email.endswith("@nitj.ac.in"):
                     st.error("❌ Please use your official NIT Jalandhar email")
                 else:
                     login_hash = hash_email(login_email)
                     
-                    # Find user by email hash and alias
-                    users = fetch_users()
-                    user = next((u for u in users 
-                               if u.get("email_hash") == login_hash 
-                               and u.get("alias") == login_alias), None)
+                    user = fetch_user_by_email_hash_and_alias(login_hash, login_alias)
                     
                     if not user:
                         st.error("❌ Invalid alias or email. Please check your credentials.")
                     else:
-                        # Log the user in
                         st.session_state.logged_in = True
                         st.session_state.current_user = user
                         st.success("✅ Login successful! Loading your matches...")
-                        time.sleep(1)
                         st.rerun()
     
     with col2:
@@ -1478,27 +1099,23 @@ else:
         """, unsafe_allow_html=True)
         
         with st.form("magic_link_form"):
-            magic_email = st.text_input("Your Email", placeholder="yourname@nitj.ac.in", key="magic_email", max_chars=100)
+            magic_email = st.text_input("Your Email", placeholder="yourname@nitj.ac.in", key="magic_email")
             magic_link_btn = st.form_submit_button("📧 Send Login Link", use_container_width=True)
             
             if magic_link_btn:
-                magic_email = magic_email.strip().lower() if magic_email else ""
-                
-                if not validate_email(magic_email):
+                if not magic_email.endswith("@nitj.ac.in"):
                     st.error("❌ Please use your official NIT Jalandhar email")
                 else:
                     magic_hash = hash_email(magic_email)
                     
-                    # Check if user exists
-                    users = fetch_users()
-                    user = next((u for u in users if u.get("email_hash") == magic_hash), None)
+                    user = fetch_user_by_email_hash(magic_hash)
                     
                     if not user:
                         st.error("❌ No account found with this email.")
                     else:
                         token = create_magic_link(magic_hash, magic_email)
                         
-                        if token and send_magic_link(magic_email, token):
+                        if send_magic_link(magic_email, token):
                             st.success("✅ Login link sent to your email!")
                             st.markdown("""
                             <div class="info-box" style="margin-top:1rem;">
