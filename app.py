@@ -1,4 +1,3 @@
-
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -239,24 +238,29 @@ hr {{
     margin: 16px 0;
 }}
 
-/* Chat interface styles */
+/* FIXED: Chat interface styles with proper flex layout */
+.chat-container {{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}}
+
 .chat-message {{
     padding: 12px 16px;
     border-radius: 16px;
     margin: 8px 0;
     max-width: 75%;
     word-wrap: break-word;
+    display: inline-block;
 }}
 
 .chat-sent {{
     background: linear-gradient(135deg, rgba(255,79,216,0.25), rgba(236,72,153,0.25));
-    margin-left: auto;
     border: 1px solid rgba(255,79,216,0.3);
 }}
 
 .chat-received {{
     background: rgba(255,255,255,0.08);
-    margin-right: auto;
     border: 1px solid rgba(255,255,255,0.15);
 }}
 
@@ -274,17 +278,6 @@ hr {{
     font-size: 0.8rem;
     font-weight: 700;
     margin-left: 8px;
-}}
-
-.chat-input-container {{
-    position: sticky;
-    bottom: 0;
-    background: rgba(12,12,22,0.95);
-    backdrop-filter: blur(10px);
-    padding: 16px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    margin: 0 -28px -28px;
-    border-radius: 0 0 24px 24px;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -832,7 +825,7 @@ if st.session_state.logged_in and st.session_state.current_user:
                     st.markdown("<div style='margin-bottom:1.5rem;'></div>", unsafe_allow_html=True)
         
         else:
-            # Chat interface
+            # FIXED: Chat interface with proper message alignment
             active_chat = st.session_state.active_chat
             chat_id = active_chat["chat_id"]
             match_user = active_chat["match_user"]
@@ -851,7 +844,8 @@ if st.session_state.logged_in and st.session_state.current_user:
             
             messages = fetch_messages(chat_id)
             
-            st.markdown('<div class="glass" style="max-height:500px;overflow-y:auto;">', unsafe_allow_html=True)
+            # FIXED: Chat messages container with proper scrolling and padding
+            st.markdown('<div class="glass" style="min-height:400px;max-height:500px;overflow-y:auto;padding:20px;margin-bottom:1rem;">', unsafe_allow_html=True)
             
             if not messages:
                 st.markdown("""
@@ -861,6 +855,9 @@ if st.session_state.logged_in and st.session_state.current_user:
                 </div>
                 """, unsafe_allow_html=True)
             else:
+                # FIXED: Use proper flex container for message alignment
+                st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+                
                 for msg in messages:
                     is_sent = msg["sender_id"] == current_user["id"]
                     css_class = "chat-sent" if is_sent else "chat-received"
@@ -871,16 +868,24 @@ if st.session_state.logged_in and st.session_state.current_user:
                     else:
                         ts_str = "Just now"
                     
+                    # FIXED: Proper message alignment using div with text-align
+                    align_style = "text-align:right;" if is_sent else "text-align:left;"
+                    
                     st.markdown(f"""
-                    <div class="chat-message {css_class}">
-                        <div>{msg['text']}</div>
-                        <div class="chat-timestamp">{ts_str}</div>
+                    <div style="{align_style}">
+                        <div class="chat-message {css_class}">
+                            <div>{msg['text']}</div>
+                            <div class="chat-timestamp">{ts_str}</div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
+                
+                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown('<div class="chat-input-container">', unsafe_allow_html=True)
+            # FIXED: Message input form with cleaner positioning
+            st.markdown('<div style="margin-top:1rem;">', unsafe_allow_html=True)
             with st.form("message_form", clear_on_submit=True):
                 msg_text = st.text_input("Type a message...", key="msg_input", label_visibility="collapsed")
                 send_btn = st.form_submit_button("📤 Send", use_container_width=True)
@@ -888,7 +893,6 @@ if st.session_state.logged_in and st.session_state.current_user:
                 if send_btn and msg_text.strip():
                     send_message(chat_id, current_user["id"], msg_text.strip())
                     st.rerun()
-            
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ================= NOT LOGGED IN: SHOW COUNTDOWN OR LOGIN/REGISTER =================
