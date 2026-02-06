@@ -578,35 +578,69 @@ def send_message(chat_id, sender_id, text):
     st.session_state.unread_counts_cache = {}
 
 def get_unread_count(chat_id, current_user_id):
-    """Get unread count with caching"""
+    """
+    Get unread count with caching
+    FIX: Avoid compound query that requires composite index
+    """
     cache_key = f"{chat_id}_{current_user_id}"
     
     if cache_key in st.session_state.unread_counts_cache:
         return st.session_state.unread_counts_cache[cache_key]
     
-    messages_ref = db.collection("chats").document(chat_id).collection("messages")
-    unread_query = messages_ref.where("sender_id", "!=", current_user_id).where("read", "==", False)
-    
-    unread_count = len(list(unread_query.stream()))
-    
-    st.session_state.unread_counts_cache[cache_key] = unread_count
-    
-    return unread_count
+    try:
+        messages_ref = db.collection("chats").document(chat_id).collection("messages")
+        
+        # FIX: Query only by 'read' field, then filter in Python
+        # This avoids the need for a composite index on (sender_id, read)
+        unread_query = messages_ref.where("read", "==", False)
+        
+        # Filter out messages sent by current user
+        unread_count = 0
+        for doc in unread_query.stream():
+            msg_data = doc.to_dict()
+            if msg_data.get("sender_id") != current_user_id:
+                unread_count += 1
+        
+        st.session_state.unread_counts_cache[cache_key] = unread_count
+        
+        return unread_count
+    except Exception as e:
+        # If query fails, return 0 to prevent app crash
+        print(f"Error getting unread count: {str(e)}")
+        return 0
 
 def mark_messages_read(chat_id, current_user_id):
-    """Mark messages as read in batch"""
-    messages_ref = db.collection("chats").document(chat_id).collection("messages")
-    unread_query = messages_ref.where("sender_id", "!=", current_user_id).where("read", "==", False)
-    
-    batch = db.batch()
-    for doc in unread_query.stream():
-        batch.update(doc.reference, {"read": True})
-    
-    batch.commit()
-    
-    cache_key = f"{chat_id}_{current_user_id}"
-    if cache_key in st.session_state.unread_counts_cache:
-        del st.session_state.unread_counts_cache[cache_key]
+    """
+    Mark messages as read in batch
+    FIX: Avoid compound query that requires composite index
+    """
+    try:
+        messages_ref = db.collection("chats").document(chat_id).collection("messages")
+        
+        # FIX: Query only by 'read' field, then filter in Python
+        unread_query = messages_ref.where("read", "==", False)
+        
+        batch = db.batch()
+        batch_count = 0
+        
+        for doc in unread_query.stream():
+            msg_data = doc.to_dict()
+            # Only mark as read if sent by other user
+            if msg_data.get("sender_id") != current_user_id:
+                batch.update(doc.reference, {"read": True})
+                batch_count += 1
+        
+        # Only commit if there are updates
+        if batch_count > 0:
+            batch.commit()
+        
+        # Invalidate cache
+        cache_key = f"{chat_id}_{current_user_id}"
+        if cache_key in st.session_state.unread_counts_cache:
+            del st.session_state.unread_counts_cache[cache_key]
+    except Exception as e:
+        print(f"Error marking messages as read: {str(e)}")
+        # Don't crash the app if this fails
 
 # ================= MAGIC LINK FUNCTIONS =================
 def create_magic_link(email_hash, email):
